@@ -1,0 +1,256 @@
+%#################################
+%#####      LSTLISTINGS      #####
+%#################################
+
+
+\lstset{ 
+	backgroundcolor=\color{white},   % choose the background color; you must add \usepackage{color} or \usepackage{xcolor}; should come as last argument
+	basicstyle=\footnotesize,        % the size of the fonts that are used for the code
+	breakatwhitespace=false,         % sets if automatic breaks should only happen at whitespace
+	breaklines=true,                 % sets automatic line breaking
+	captionpos=b,                    % sets the caption-position to bottom
+	commentstyle=\color{green!60!black},      % comment style
+	deletekeywords={...},            % if you want to delete keywords from the given language
+	escapeinside={\%*}{*)},          % if you want to add LaTeX within your code
+	extendedchars=true,              % lets you use non-ASCII characters; for 8-bits encodings only, does not work with UTF-8
+	frame=all,	                 % adds a frame around the code
+	keepspaces=true,                 % keeps spaces in text, useful for keeping indentation of code (possibly needs columns=flexible)
+	keywordstyle=\color{violet},     % keyword style
+	language=C,                 	 % the language of the code
+	morekeywords={*,..., fi, do, od, return, then},            % if you want to add more keywords to the set
+	numbers=left,                    % where to put the line-numbers; possible values are (none, left, right)
+	numbersep=5pt,                   % how far the line-numbers are from the code
+	numberstyle=\tiny\color{gray},   % the style that is used for the line-numbers
+	rulecolor=\color{black!50},         % if not set, the frame-color may be changed on line-breaks within not-black text (e.g. comments (green here))
+	showspaces=false,                % show spaces everywhere adding particular underscores; it overrides 'showstringspaces'
+	showstringspaces=false,          % underline spaces within strings only
+	showtabs=false,                  % show tabs within strings adding particular underscores
+	stepnumber=1,                    % the step between two line-numbers. If it's 1, each line will be numbered
+	stringstyle=\color{blue},        % string literal style
+	tabsize=2,	                     % sets default tabsize to 2 spaces
+	title=\lstname                   % show the filename of files included with \lstinputlisting; also try caption instead of title
+}
+
+
+\lstdefinelanguage{ROSBASH}{
+	keywords={catkin_make, rospack, roscd, rosls, catkin_create_pkg, roscore, rosnode, rosrun, rqt_graph, rostopic, rosmsg, rosservice, rossrv, rosparam, rosed, catkin, cd, 
+		rosbag, roslaunch, source},
+	morecomment=[l]{\#},
+	morestring=[b]',
+	morestring=[b]",
+	sensitive=true,
+	morecomment=[l]{\#},
+}
+
+\lstdefinelanguage{plainlang}{
+	keywords={},
+	morecomment=[l]{//},
+	morecomment=[s]{/*}{*/},
+	morestring=[b]',
+	morestring=[b]",
+}
+
+\lstdefinelanguage
+[x64]{Assembler}     % add a "x64" dialect of Assembler
+[x86masm]{Assembler} % based on the "x86masm" dialect
+% with these extra keywords:
+{morekeywords={CDQE,CQO,CMPSQ,CMPXCHG16B,JRCXZ,LODSQ,MOVSXD, %
+		POPFQ,PUSHFQ,SCASQ,STOSQ,IRETQ,RDTSCP,SWAPGS, %
+		rax,rdx,rcx,rbx,rsi,rdi,rsp,rbp, %
+		r8,r8d,r8w,r8b,r9,r9d,r9w,r9b, %
+		r10,r10d,r10w,r10b,r11,r11d,r11w,r11b, %
+		r12,r12d,r12w,r12b,r13,r13d,r13w,r13b, %
+		r14,r14d,r14w,r14b,r15,r15d,r15w,r15b}} % etc.
+
+\lstdefinelanguage{Cuda}{
+	language=C++,
+	morekeywords={
+		__global__, __shared__, __device__, __host__,
+		__syncthreads,
+		dim3
+	},
+	moredelim=[s][\ttfamily \color{green!60!black}]{<<<}{>>>},
+}
+
+\lstdefinelanguage{JavaScript}{
+	keywords={break, case, catch, continue, debugger, default, delete, do, else, finally, for, function, if, in, instanceof, new, return, switch, this, throw, try, typeof, var, void, while, with},
+	morecomment=[l]{//},
+	morecomment=[s]{/*}{*/},
+	morestring=[b]',
+	morestring=[b]",
+	sensitive=true
+}
+
+\lstdefinelanguage{Scheme}{
+	keywords={define, lambda},
+	morekeywords=[1]{define, define-syntax, define-macro, lambda, define-stream, stream-lambda},
+	morekeywords=[2]{begin, call-with-current-continuation, call/cc,
+		call-with-input-file, call-with-output-file, case, cond,
+		do, else, for-each, if,
+		let*, let, let-syntax, letrec, letrec-syntax,
+		let-values, let*-values,
+		and, or, not, delay, force,
+		quasiquote, quote, unquote, unquote-splicing,
+		map, fold, syntax, syntax-rules, eval, environment, query, car, cdr, cons, set!, set-car!, set-cdr!},
+	morekeywords=[3]{import, export},
+	morecomment=[l]{;},
+	morecomment=[s]{\#|}{|\#},
+	alsodigit=!\$\%&*+-./:<=>?@^_~,
+	literate=*{`}{{`}}{1},
+	sensitive=true
+}
+
+\lstdefinestyle{basic}{
+	breakatwhitespace=false,         % sets if automatic breaks should only happen at whitespace
+	breaklines=true,                 % sets automatic line breaking
+	captionpos=b,                    % sets the caption-position to bottom
+	escapeinside={\%*}{*)},          % if you want to add LaTeX within your code
+	extendedchars=true,              % lets you use non-ASCII characters; for 8-bits encodings only, does not work with UTF-8
+	frame=all,	                 	 % adds a frame around the code
+	keepspaces=true,                 % keeps spaces in text, useful for keeping indentation of code (possibly needs columns=flexible)
+	language=bash,                 	 % the language of the code
+	numbers=left,                    % where to put the line-numbers; possible values are (none, left, right)
+	numbersep=5pt,                   % how far the line-numbers are from the code
+	showspaces=false,                % show spaces everywhere adding particular underscores; it overrides 'showstringspaces'
+	showstringspaces=false,          % underline spaces within strings only
+	showtabs=false,                  % show tabs within strings adding particular underscores
+	stepnumber=1,                    % the step between two line-numbers. If it's 1, each line will be numbered
+	tabsize=2,	                     % sets default tabsize to 2 spaces
+	title=\lstname                   % show the filename of files included with \lstinputlisting; also try caption instead of title
+}
+\lstdefinestyle{dark}{
+	style=basic,
+	backgroundcolor=\color{black!80!white},   % choose the background color; you must add \usepackage{color} or \usepackage{xcolor}; should come as last argument
+	basicstyle=\ttfamily \color{white},        % the size of the fonts that are used for the code
+	commentstyle=\color{gray},      % comment style
+	keywordstyle=\color{green!50!white},     % keyword style
+	numberstyle=\tiny\color{gray},   % the style that is used for the line-numbers
+	rulecolor=\color{black!50},         % if not set, the frame-color may be changed on line-breaks within not-black text (e.g. comments (green here))
+	stringstyle=\color{blue!50!white},        % string literal style
+}
+\lstdefinestyle{light}{
+	style=basic,
+	backgroundcolor=\color{white},   		% choose the background color; you must add \usepackage{color} or \usepackage{xcolor}; should come as last argument
+	basicstyle=\footnotesize,        		% the size of the fonts that are used for the code
+	commentstyle=\color{green!60!black},    % comment style
+	keywordstyle=\color{violet},     		% keyword style
+	numberstyle=\tiny\color{gray},   		% the style that is used for the line-numbers
+	rulecolor=\color{black!50},      		% if not set, the frame-color may be changed on line-breaks within not-black text (e.g. comments (green here))
+	stringstyle=\color{blue},        		% string literal style
+}
+
+\lstdefinestyle{plain}{
+	style=light,
+	language=plainlang
+}
+
+\lstdefinestyle{bash}{
+	style=dark,
+	language=bash,
+	morekeywords={sudo, get, apt, source, install, mkdir, cd, snap},             % if you want to add more keywords to the set
+}
+
+\lstdefinestyle{BNF}{
+	style=light,
+	language=BNF
+}
+
+\lstdefinestyle{C++}{
+	style=light,
+	language=C++
+}
+
+\lstdefinestyle{Cuda}{
+	style=light,
+	language=Cuda
+}
+
+\lstdefinestyle{CSharp}{
+	style=light,
+	language=[Sharp]C
+}
+
+\lstdefinestyle{html}{
+	style=light,
+	language=html
+}
+
+\lstdefinestyle{Java}{
+	style=light,
+	language=Java
+}
+
+\lstdefinestyle{LaTeX}{
+	style=light,
+	language=[LaTeX]TeX
+}
+
+\lstdefinestyle{make}{
+	style=light,
+	language=make
+}
+
+\lstdefinestyle{Pascal}{
+	style=light,
+	language=Pascal
+}
+
+\lstdefinestyle{Perl}{
+	style=light,
+	language=Perl
+}
+
+\lstdefinestyle{PHP}{
+	style=light,
+	language=PHP
+}
+
+\lstdefinestyle{PostScript}{
+	style=light,
+	language=PostScript
+}
+
+\lstdefinestyle{Prolog}{
+	style=light,
+	language=Prolog
+}
+
+\lstdefinestyle{Python}{
+	style=light,
+	language=Python
+}
+
+\lstdefinestyle{R}{
+	style=light,
+	language=R
+}
+
+\lstdefinestyle{roscmd}{
+	style=dark,
+	language=ROSBASH
+}
+
+\lstdefinestyle{Ruby}{
+	style=light,
+	language=Ruby
+}
+
+\lstdefinestyle{SQL}{
+	style=light,
+	language=SQL
+}
+
+\lstdefinestyle{tcl}{
+	style=light,
+	language=tcl
+}
+
+\lstdefinestyle{Verilog}{
+	style=light,
+	language=Verilog
+}
+
+\lstdefinestyle{XML}{
+	style=light,
+	language=XML
+}

@@ -1,0 +1,54 @@
+\documentclass[12pt,pdftex,a4paper]{scrbook}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage[pdftex]{graphicx}
+\usepackage{amsfonts}
+\usepackage{listings}
+\usepackage[table]{xcolor}
+\usepackage{tcolorbox}
+
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+
+\usepackage{hyperref}
+\usepackage{colortbl}
+\usepackage{multirow}
+
+\usepackage{longtable}
+
+%\usepackage[color={[rgb]{0.95, 0.95, .95}}]{draftwatermark}
+%\SetWatermarkText{\texttt{{\Huge DRAFT}}}
+
+%\SetWatermarkScale{9}
+
+\input{res/theme.tex}
+\input{res/languages.tex}
+\input{general/namespaces.tex}
+
+\newcommand{\namespace}{}
+\newcommand{\resolveNS}[1]{\namespace#1}
+\newcommand{\seclbl}[1]{\label{\resolveNS{#1}}}
+\newcommand{\secnref}[1]{\nameref{\resolveNS{#1}}}
+\newcommand{\chaprefns}[1]{\hyperref[\resolveNS{#1}]{Chapter~\ref*{\resolveNS{#1}}:~\nameref*{\resolveNS{#1}}}}
+
+\newcommand{\hysecnref}[2]{\nameref{#1#2}}
+\newcommand{\hychaprefns}[2]{\hyperref[#1#2]{Chapter~\ref*{#1#2}:~\nameref*{#1#2}}}
+
+
+\begin{document}
+	\thispagestyle{empty}
+	\title{Riptide Networking}
+	\subtitle{Notes}
+	\maketitle
+	
+	\newpage
+	\tableofcontents
+	
+%	\part{Low Level Documentation}
+	
+	\input{content/lowlevel/index.tex}
+	\input{content/highlevel/index.tex}
+	
+\end{document}
