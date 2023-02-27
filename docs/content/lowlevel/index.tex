@@ -470,25 +470,6 @@ See \texttt{Core/Peer.cs}
 	6 & Disconnected & The disconnection was initiated by the client \\ \hline
 \end{enumdef}
 
-\section{Conclusions from Message Implementation}
-
-\begin{itemize}
-	\item Endianness depends on the local hardware. This may lead to values not being interpreted correctly if server and client use different endianness. Assume Little-Endian data as the default case.
-	\item For (send-)performance, prefer byte[] arrays over sbyte[] arrays.
-	\item \textit{If byte[] arrays with more than $2^{16}$ elements need to be transferred, use sbyte[] instead, otherwise there will be an overflow in the write pointer of the message class. } 
-	\begin{itemize}
-		\item Fixed with commit ba93196, 12.02.2023
-	\end{itemize}
-	\item It seems possible to create messages that are up to 5 byte larger than the expected package size
-	\item It seems possible to accidentally get crappy data by passing an oversized array to GetBools to read into
-	\item Using getBool on Bool arrays will fail.
-	\item TCP Transport seems to listen mostly on IPv6 (IPv6Any in C\#)
-	\item It is possible to try to send negative amount of data, causing generic Argument out of range exceptions using TCP transport
-	\item It is possible to spoof TCP messages by sending carefully crafted messages with a length of $> 2^{16}$ bytes
-	\item Docs in client.cs:312 (local disconnect, rejectReason) seems wrong (copy-paste error)
-\end{itemize}
-
-
 \chapter{Protocol}
 
 \section{General Information}
