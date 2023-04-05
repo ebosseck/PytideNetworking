@@ -1,0 +1,32 @@
+[tool.poetry]
+name = "PytideNetworking"
+version = "0.1.0"
+description = "Python port of C# library Riptide."
+authors = ["Eric Bossecker <ebosseck@lunznet.de>"]
+# New attributes
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/ebosseck/PytideNetworking"
+repository = "https://github.com/ebosseck/PytideNetworking"
+keywords = ["PytideNetworking", "networking", "Riptide"]
+classifiers = [
+    "Environment :: Console",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Documentation",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Quality Assurance",
+]
+include = [
+    "LICENSE",
+]
+
+[tool.poetry.dependencies]
+# Updated Python version
+python = "^3.6"
+
+[tool.poetry.dev-dependencies]
+pytest = "^3.0"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
