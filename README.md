@@ -16,7 +16,18 @@ The API is mostly identical to [Riptide](https://github.com/RiptideNetworking/Ri
 
 ### Installation
 
+#### From Source
+
 Clone this repository and copy the folder "pytidenetworking" into your working directory.
+
+#### Poetry
+
+In your poetry project use
+
+poetry add git+https://github.com/ebosseck/PytideNetworking.git
+
+to add this project as an external dependency.
+This should already be sufficient to be able to use the PytideNetworking library in your poetry project.
 
 ### Create a new Server
 
