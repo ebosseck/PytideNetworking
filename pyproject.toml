@@ -2,7 +2,7 @@
 name = "PytideNetworking"
 version = "0.1.0"
 description = "Python port of C# library Riptide."
-authors = ["Eric Bossecker <ebosseck@lunznet.de>"]
+authors = ["Eric Bossecker <poetry.pytide@mail-b.org>"]
 # New attributes
 license = "MIT"
 readme = "README.md"
