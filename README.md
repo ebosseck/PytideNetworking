@@ -10,6 +10,11 @@ This port was last tested for functionality with Riptide [Commit 5a86ca0](https:
 
 The Compatibility can be tested by connecting the C# client provided in the unity folder with the server implemented in testing/server.py
 
+## Compatible libraries in other languages
+
+- C#: [Riptide](https://github.com/RiptideNetworking/Riptide)
+- Dart/Flutter: [Riptide Dart Port](https://github.com/JayKay135/Riptide-Dart-Port)
+
 ## Getting Started
 
 The API is mostly identical to [Riptide](https://github.com/RiptideNetworking/Riptide).
