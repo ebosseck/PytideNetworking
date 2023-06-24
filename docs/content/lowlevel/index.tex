@@ -590,6 +590,12 @@ The remote and local bit fields are combined (using binary or), and the ack stat
 \subsection{UDP}
 If not otherwise specified, UDP is used as transport.
 
+\begin{itemize}
+	\item Default Socket buffer size: 1 MB (1024*1024 Byte)
+	\item Minimal Socket buffer size: 256Kb (256*1024 Byte)
+	\item Receive Polling Frequency: 2 Hz (Every 0.5 Seconds)
+\end{itemize}
+
 \subsection{TCP}
 
 \subsubsection{Package Format}

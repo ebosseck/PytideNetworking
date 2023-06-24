@@ -8,6 +8,8 @@ This port provides functionality for establishing connections with clients and s
 
 This port was last tested for functionality with Riptide [Commit 5a86ca0](https://github.com/RiptideNetworking/Riptide/tree/5a86ca0a67d6cce1fb080eaca0535d030528f0d6), Jan 26 2023
 
+This port is compatible with Riptide 2.0.0.
+
 The Compatibility can be tested by connecting the C# client provided in the unity folder with the server implemented in testing/server.py
 
 ## Getting Started
@@ -91,6 +93,7 @@ Furthermore, a low level documentation of the protocol used is available in docs
 
 ## Low-Level Transports supported by Pytide
 
+* UDP (built-in)
 * TCP (built-in)
 
 ## License

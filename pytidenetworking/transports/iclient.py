@@ -1,3 +1,4 @@
+from pytidenetworking.connection import Connection
 from pytidenetworking.transports.ipeer import IPeer, EventHandler
 
 
@@ -16,7 +17,7 @@ class IClient(IPeer):
         Invoked when a connection attempt fails at the transport level.
         """
 
-    def Connect(self, hostAddress: str) -> bool:
+    def connect(self, hostAddress: str, port: int) -> [bool, Connection, str]:
         """
         Starts the transport and attempts to connect to the given host address.
         :param hostAddress: The host address to connect to.
@@ -24,7 +25,7 @@ class IClient(IPeer):
         """
         return False
 
-    def Disconnect(self):
+    def disconnect(self):
         """
         Closes the connection to the server
         """
