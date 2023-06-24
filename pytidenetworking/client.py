@@ -6,7 +6,7 @@ from .message_base import MessageHeader
 from .peer import Peer, DisconnectReason, RejectReason, increaseActiveCount, decreaseActiveCount, HeartbeatEvent, \
     rejectReasonToString, disconnectReasonToString
 from .transports.iclient import IClient
-from .transports.tcp.tcp_client import TCPClient
+from .transports.udp.udp_client import UDPClient
 from .utils.eventhandler import EventHandler
 from .utils.logengine import getLogger
 
@@ -76,8 +76,7 @@ class Client(Peer):
         """
 
         if self.__transport is None:
-            #TODO: Change to UDP client to match C# behaviour once implemented
-            self.__transport = TCPClient()
+            self.__transport = UDPClient()
 
         self.__connectBytes: Optional[bytearray] = None
         """

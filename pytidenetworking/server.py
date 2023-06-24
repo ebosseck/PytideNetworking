@@ -7,7 +7,7 @@ from pytidenetworking.message_base import MessageHeader
 from pytidenetworking.peer import Peer, DisconnectReason, RejectReason, rejectReasonToString, HeartbeatEvent, \
     disconnectReasonToString
 from pytidenetworking.transports.iserver import IServer
-from pytidenetworking.transports.tcp.tcp_server import TCPServer
+from pytidenetworking.transports.udp.udp_server import UDPServer
 from pytidenetworking.utils.eventhandler import EventHandler
 from pytidenetworking.utils.logengine import getLogger
 
@@ -56,7 +56,7 @@ class Server(Peer):
         """
 
         if self.__transport is None:
-            self.__transport = TCPServer()
+            self.__transport = UDPServer()
 
         self.messageRelayFilter = None
         """
