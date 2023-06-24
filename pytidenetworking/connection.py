@@ -496,7 +496,7 @@ class Connection:
         :return:
         """
         message = createMessage(MessageHeader.Heartbeat)
-        message.putInt8(pingID)
+        message.putUInt8(pingID)
 
         self.sendMessage(message)
 
