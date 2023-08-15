@@ -1,4 +1,8 @@
-from typing import Tuple, List, Union, Literal
+from typing import Tuple, List, Union
+try:
+    from typing import Literal
+except ImportError:
+    from typing_extensions import Literal
 
 from pytidenetworking.connection import Connection
 from pytidenetworking.peer import DisconnectReason
