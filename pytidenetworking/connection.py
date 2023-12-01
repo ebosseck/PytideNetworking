@@ -468,6 +468,7 @@ class Connection:
         :param message: The welcome message to handle
         :return:
         """
+        self.reliableHandle(message.seqID)
         id = message.getUInt16()
 
         if self.__id != id:

@@ -1,0 +1,17 @@
+\renewcommand{\namespace}{\nsChangelogTwoOneZero}
+
+\chapter{Version 2.1.0}
+
+\section{Client.cs}
+
+\begin{itemize}
+	\item \textbf{New Set-Only-Attribute:} TimeoutTime - sets default timeout time for this client as well as this client connection's timeout time
+	\item Connect message is now stored in a private field, instead of being created for each connection attempt
+	\item \textbf{Signature Change} Connect() has now an additional optional bool parameter defaulting to true. If false, the reflections based message handling system is completely disabled
+	\item StartTime() is called before Heartbeat in connect
+	\item In case reflections does not find a connection handler marked method with correct signature, but with server signature, an more expressive exception is thrown instead of just not working
+	\item \textbf{AckExtra} message type removed
+	\item Reject message handler does not set the connection to pending anymore, in case a reject message with status pending is set
+	\item Send() now returns an ushort return code
+	\item new internal disconnect: Now with connection and disconnect reason as arguments, calling local disconnect if connection from args is connected with given disconnect reason
+\end{itemize}

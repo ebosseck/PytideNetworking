@@ -359,7 +359,7 @@ class Server(Peer):
             self.localDisconnect(connection, DisconnectReason.Disconected)
         elif header == MessageHeader.Welcome:
             if connection.isConnecting:
-                connection.handleWelcome(message)
+                connection.handleWelcomeResponse(message)
                 self.onClientConnected(connection)
         else:
             logger.warning("Unexpected message header '{}'! Discarding message received from {}.".format(header, connection))
