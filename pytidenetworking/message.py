@@ -1,4 +1,8 @@
-from typing import List, Literal, Union
+from typing import List, Union
+try:
+    from typing import Literal
+except ImportError:
+    from typing_extensions import Literal
 
 from .message_base import MessageBase, MessageHeader, MessageSendMode
 from .utils.converter import fp32_to_bytes, fp64_to_bytes, bytes_to_fp32, bytes_to_fp64

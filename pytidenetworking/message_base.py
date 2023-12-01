@@ -1,5 +1,9 @@
 from enum import IntEnum
-from typing import Literal, Union, List
+from typing import Union, List
+try:
+    from typing import Literal
+except ImportError:
+    from typing_extensions import Literal
 
 BYTE_ORDER_LITTLE: Literal['big', 'little'] = "little"
 BYTE_ORDER_BIG: Literal['big', 'little'] = "big"

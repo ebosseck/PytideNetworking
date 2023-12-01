@@ -513,6 +513,7 @@ class Connection:
         :return:
         """
         self.__id = message.getUInt16()
+        self.reliableHandle(self.__id)
         self.__state = ConnectionState.Connected
         self.resetTimeout()
 
