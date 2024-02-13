@@ -1,15 +1,22 @@
+# Updated to 2.1.0
+
 from time import time
 from enum import IntEnum
 from typing import Optional, Dict, Union, List
 
-from pytidenetworking.message_base import MessageBase, MessageSendMode, MessageHeader
+from pytidenetworking.message_base import MessageBase, MessageSendMode, MessageHeader, HEADER_BITS
 
-from .pending_message import PendingMessage, createAndSend
+from .pending_message import PendingMessage, createPending
 from .message import createInternal as createMessage, Message
 
-from pytidenetworking.peer import Peer
-from pytidenetworking.utils.helper import getSequenceGap
+from pytidenetworking.peer import Peer, DisconnectReason
+from .utils.bitfield import Bitfield
+from .utils.connection_metrics import ConnectionMetrics
+from .utils.converter import ushortFromBits, byteFromBits
+from .utils.eventhandler import EventHandler
 from .utils.logengine import getLogger
+from .utils.notify_sequencer import NotifySequencer
+from .utils.relieble_sequencer import ReliableSequencer
 
 LEFT_BIT = 0b1000_0000_0000_0000
 
@@ -44,28 +51,55 @@ class Connection:
         """
         Initializes the connection.
         """
+
+        self.notifyDelivered = EventHandler()
+        """
+        Invoked when the notify message with the given sequence ID is successfully delivered.
+        """
+        self.notifyLost = EventHandler()
+        """
+        Invoked when the notify message with the given sequence ID is lost.
+        """
+        self.notifyReceived = EventHandler()
+        """
+        Invoked when a notify message is received.
+        """
+        self.reliableDelivered = EventHandler()
+        """
+        Invoked when the reliable message with the given sequence ID is successfully delivered.
+        """
+
         self.__id: int = 0
         self.__state = ConnectionState.Connecting
         self.__rtt: int = -1
-        self.__smoothRtt: int = 0
+        self.__smoothRtt: int = -1
 
-        self.__lastHeartbeat: float = 0
+        self.timeoutTime = 0
+
+        self.__lastHeartbeat: int = 0
         self.__lastPingID: int = 0
         self.__pendingPingId: int = 0
-        self.__pendingPingSendTime: float = 0
+        self.__pendingPingSendTime: int = 0
 
         self.__canTimeout: bool = True
+        self.__connectionMetrics: ConnectionMetrics = ConnectionMetrics()
+        self.canQualityDisconnect = True
+
+        self.maxAvgSendAttempts: int = 5
+        self.avgSendAttemptsResilience: int = 64
+        self.maxSendAttempts: int = 15
+        self.maxNotifyLoss: float = 0.05
+        self.notifyLossResilience: int = 64
+
+        self.__notify: NotifySequencer = NotifySequencer(self)
+        self.__reliable: ReliableSequencer = ReliableSequencer(self)
 
         self.__pendingMessages: Dict[int, PendingMessage] = {}
 
         self._peer: Optional[Peer] = None
 
-        self.__lastReceivedSeqID: int = 0
-        self.__acksBitfield: int = 0
-        self.__duplicateFilterBitfield: int = 0
-        self.__lastAckedSeqID: int = 0
-        self.__ackedMessagesBitfield: int = 0
-        self.__lastSequenceID: int = 0
+        self.__sendAttemptViolations: int = 0
+        self.__lossRateViolations: int = 0
 
     #region Properties
     @property
@@ -166,11 +200,15 @@ class Connection:
         self.__canTimeout = value
 
     @property
+    def metrics(self) -> ConnectionMetrics:
+        return self.__connectionMetrics
+
+    @property
     def hasTimedOut(self):
         """
         :return: True if the connection has timed out
         """
-        return self.__canTimeout and (time() - self.__lastHeartbeat) * 1000 > self._peer.timeout_time
+        return self.__canTimeout and (self._peer.current_time - self.__lastHeartbeat) > self.timeoutTime
 
     @property
     def hasConnectAttemptTimedOut(self):
@@ -179,18 +217,18 @@ class Connection:
         :return: True if the connection attempt has timed out. Uses a multiple of Peer.TimeoutTime
         and ignores the value of CanTimeout
         """
-        return (time() - self.__lastHeartbeat) * 1000 > self._peer.timeout_time * 2
+        return self.__canTimeout and (self._peer.current_time - self.__lastHeartbeat) > self._peer._connectTimeoutTime
 
     #endregion
 
-    @property
-    def pendingMessages(self):
-        """
-        The currently pending reliably sent messages whose delivery has not been acknowledged yet.
-        Stored by sequence ID.
-        :return:
-        """
-        return self.__pendingMessages
+ #   @property
+ #   def pendingMessages(self):
+ #       """
+ #       The currently pending reliably sent messages whose delivery has not been acknowledged yet.
+ #       Stored by sequence ID.
+ #       :return:
+ #       """
+ #       return self.__pendingMessages
 
     @property
     def peer(self):
@@ -199,19 +237,15 @@ class Connection:
         """
         return self._peer
 
-#    @peer.setter
+#    @peer.setter - Private in 2.1.0
 #    def peer(self, value):
 #        self._peer = value
 
-    @property
-    def nextSequenceID(self):
-        """
-
-        :return: The next sequence ID to use.
-        """
-        return (self.__lastSequenceID + 1) & 0xffff # Ushort + simulated overflow
-
     #endregion
+
+    def initialize(self, peer: Peer, timeoutTime: int):
+        self._peer = peer
+        self.timeoutTime = timeoutTime
 
     def resetTimeout(self):
         """
@@ -221,22 +255,35 @@ class Connection:
 
     #region Sending
 
-    def sendMessage(self, message: MessageBase, shouldRelease: bool = True):
+    def sendMessage(self, message: MessageBase, shouldRelease: bool = True) -> int:
         """
         Sends a message.
 
         :param message: Message to send
         :param shouldRelease: If true, the message is released back into the message pool. Defaults to true
-        :return:
+        :return: the sequence ID of the message
         """
-        if message.sendMode == MessageSendMode.Unreliable:
+        sequenceID: int = 0
+        if message.sendMode == MessageSendMode.Notify:
+            sequenceID = self.__notify.insertHeader(message)
+            byteAmount = message.bytesInUse
             self.send(*message.createBytestream())
+            self.__connectionMetrics.sentNotify(byteAmount)
+        elif message.sendMode == MessageSendMode.Unreliable:
+            byteAmount = message.bytesInUse
+            self.send(*message.createBytestream())
+            self.__connectionMetrics.sentUnreliable(byteAmount)
         else:
-            seqID = self.nextSequenceID
-            createAndSend(seqID, message, self)
+            sequenceID = self.__reliable.nextSequenceID
+            pendingMessage = createPending(sequenceID, message, self)
+            self.__pendingMessages[sequenceID] = pendingMessage
+            pendingMessage.trySend()
+            self.__connectionMetrics.incrementReliableUniques()
 
         if shouldRelease:
             message.release()
+
+        return sequenceID
 
     def send(self, dataBuffer: Union[bytes, bytearray, List[int]], amount: int):
         """
@@ -250,148 +297,23 @@ class Connection:
 
     #endregion
 
-    #region Ack handling
+    #region Notify Handling
 
-    def reliableHandle(self, sequenceID: int) -> bool:
-        """
-        Updates acks and determines whether the message is a duplicate.
-
-        :param sequenceID: The message's sequence ID.
-        :return: True if the message should be handled.
-        """
-        doHandle: bool = True
-
-        sequenceGap: int = getSequenceGap(sequenceID, self.__lastReceivedSeqID)
-        if sequenceGap > 0:
-            # The received message ID is newer than the previous one
-            if sequenceGap > 64:
-                logger.warning("The gap between received sequence IDs was very large ({})! If the connection's packet "
-                               "loss, latency, or your send rate of reliable messages increases much further, "
-                               "sequence IDs may begin falling outside the bounds of the duplicate filter.".format(
-                                sequenceGap))
-
-            self.__duplicateFilterBitfield = (self.__duplicateFilterBitfield << sequenceGap) & 0xffff_ffff_ffff_ffff
-            if sequenceGap <= 16:
-                shiftedBits = (self.__acksBitfield << sequenceGap) & 0xffff_ffff_ffff_ffff
-                self.__acksBitfield = shiftedBits & 0xffff
-                self.__duplicateFilterBitfield |= shiftedBits >> 16
-
-                doHandle = self.updateAckBitfield(sequenceGap)
-                self.__lastReceivedSeqID = sequenceID
-            elif sequenceGap <= 80:
-                shiftedBits = (self.__acksBitfield << (sequenceGap - 16)) & 0xffff_ffff_ffff_ffff
-                self.__acksBitfield = 0 # reset, since all its bits are moved to the duplicate detection
-                self.__duplicateFilterBitfield |= shiftedBits
-
-                doHandle = self.updateDuplicateFilterBitfield(sequenceGap)
-
-        elif sequenceGap < 0:
-            sequenceGap = -sequenceGap
-            if sequenceGap <= 16:
-                doHandle = self.updateAckBitfield(sequenceGap)
-            elif sequenceGap <= 80:
-                doHandle = self.updateDuplicateFilterBitfield(sequenceGap)
-
+    def processNotify(self, dataBuffer: Union[bytes, bytearray, List[int]], amount: int, message: MessageBase):
+        self.__notify.updateReceivedAcks(ushortFromBits(dataBuffer, HEADER_BITS), byteFromBits(dataBuffer, HEADER_BITS + 16))
+        self.__connectionMetrics.receivedNotify(amount)
+        if self.__notify.shouldHandle(ushortFromBits(dataBuffer, HEADER_BITS + 24)):
+            self.notifyReceived(message)
         else:
-            doHandle = False
-
-        self.sendAck(sequenceID)
-        return doHandle
-
-    def updateAckBitfield(self, sequenceGap) -> bool:
-        """
-        Updates the acks bitfield and determines whether or not to handle the message.
-
-        :param sequenceGap: The gap between the newly received sequence ID and the previously last received sequence ID.
-        :return: True if the message should be handled, based on whether or not it's a duplicate.
-        """
-        seqIDBit = (1 << sequenceGap -1) & 0xffff
-
-        if (self.__acksBitfield & seqIDBit) == 0: # Message is not received before
-            self.__acksBitfield |= seqIDBit
-            return True
-        return False
-
-    def updateDuplicateFilterBitfield(self, sequenceGap) -> bool:
-        """
-        Updates the duplicate filter bitfield and determines whether or not to handle the message.
-
-        :param sequenceGap: The gap between the newly received sequence ID and the previously last received sequence ID.
-        :return: True if the message should be handled, based on if it's a duplicate.
-        """
-        seqIDBit = (1 << sequenceGap - 1 - 16) & 0xffff_ffff_ffff_ffff
-
-        if (self.__duplicateFilterBitfield & seqIDBit) == 0: # Message is not received before
-            self.__duplicateFilterBitfield |= seqIDBit
-            return True
-        return False
-
-    def updateReceivedAcks(self, remoteLastReceivedSeqID: int, remoteAcksBitField: int):
-        """
-        Updates which messages we've received acks for.
-
-        :param remoteLastReceivedSeqID: The latest sequence ID that the other end has received.
-        :param remoteAcksBitField: A redundant list of sequence IDs that the other end has (or has not) received.
-        :return:
-        """
-        sequenceGap = getSequenceGap(remoteLastReceivedSeqID, self.__lastAckedSeqID)
-
-        if sequenceGap > 0:
-            for i in range(1, sequenceGap):
-                self.__ackedMessagesBitfield <<= 1
-                self.checkMessageAckStatus((self.__lastAckedSeqID - 16 + i) & 0xffff, LEFT_BIT)
-            self.__ackedMessagesBitfield <<= 1
-            self.__ackedMessagesBitfield |= (remoteAcksBitField | (1 << sequenceGap - 1)) & 0xffff
-            self.__lastAckedSeqID = remoteLastReceivedSeqID
-
-            self.checkMessageAckStatus((self.__lastAckedSeqID - 16) & 0xffff, LEFT_BIT)
-
-        elif sequenceGap < 0:
-            #TODO: Check if this case ever executes & see if this section remains in C# version long term
-            sequenceGap = (-sequenceGap - 1) & 0xffff
-            ackedBit = (1 << sequenceGap) & 0xffff
-
-            self.__ackedMessagesBitfield |= ackedBit
-            if remoteLastReceivedSeqID in self.__pendingMessages:
-                self.__pendingMessages[remoteLastReceivedSeqID].clear()
-        else:
-            self.__ackedMessagesBitfield |= remoteAcksBitField
-            self.checkMessageAckStatus((self.__lastAckedSeqID - 16) & 0xffff, LEFT_BIT)
-
-    def checkMessageAckStatus(self, sequenceID: int, bit: int):
-        """
-        Check the ack status of the given sequence ID.
-
-        :param sequenceID: The sequence ID whose ack status to check.
-        :param bit: The bit corresponding to the sequence ID's position in the bit field.
-        :return:
-        """
-        if (self.__ackedMessagesBitfield & bit) == 0:
-            if sequenceID in self.__pendingMessages:
-                self.__pendingMessages[sequenceID].retrySend()
-        else:
-            if sequenceID in self.__pendingMessages:
-                self.__pendingMessages[sequenceID].clear()
-
-    def ackMessage(self, seqID: int):
-        """
-        Immediately marks the PendingMessage of a given sequence ID as delivered.
-        :param seqID: The sequence ID that was acknowledged.
-        :return:
-        """
-        if seqID in self.__pendingMessages:
-            self.__pendingMessages[seqID].clear()
-
+            self.__connectionMetrics.incrementNotifyDiscarded()
     #endregion
 
-    def setPending(self):
-        """
-        Puts the connection in the pending state.
-        :return:
-        """
-        if self.isConnecting:
-            self.__state = ConnectionState.Pending
-            self.resetTimeout()
+    #region reliable handling
+
+    def shouldHandle(self, sequenceID) -> bool:
+        return self.__reliable.shouldHandle(sequenceID)
+
+    #endregion
 
     def localDisconnect(self):
         """
@@ -401,24 +323,63 @@ class Connection:
         """
         self.__state = ConnectionState.NotConnected
 
-        for msg in self.pendingMessages.values():
-            msg.clear(False)
+        for msg in self.__pendingMessages.values():
+            msg.clear()
 
-        self.pendingMessages.clear()
+        self.__pendingMessages.clear()
+
+    def resendMessage(self, sequenceID: int):
+        """
+        Resend the pending message with the given sequence ID
+        :param: sequenceID - Sequence ID of the message
+        """
+        if sequenceID in self.__pendingMessages:
+            self.__pendingMessages[sequenceID].retrySend()
+
+    def clearMessage(self, sequenceID: int):
+        if sequenceID in self.__pendingMessages:
+            self.reliableDelivered(sequenceID)
+            self.__pendingMessages[sequenceID].clear()
+            del self.__pendingMessages[sequenceID]
+            self.__updateSendAttemptViolations()
+
+    def setPending(self):
+        if self.isConnecting:
+            self.__state = ConnectionState.Pending
+            self.resetTimeout()
+
+    def __updateSendAttemptViolations(self):
+        if self.__connectionMetrics.rollingReliableSends.mean > self.maxAvgSendAttempts:
+            self.__sendAttemptViolations += 1
+            if self.__sendAttemptViolations >= self.avgSendAttemptsResilience:
+                self._peer.disconnect(self, DisconnectReason.PoorConnection)
+        else:
+            self.__sendAttemptViolations = 0
+
+    def __updateLossViolations(self):
+        if self.__connectionMetrics.rollingNotifyLossRate > self.maxNotifyLoss:
+            self.__lossRateViolations += 1
+            if self.__lossRateViolations >= self.notifyLossResilience:
+                self._peer.disconnect(self, DisconnectReason.PoorConnection)
+        else:
+            self.__lossRateViolations = 0
 
     #region Messages
-    def sendAck(self, sequenceID):
+    def sendAck(self, sequenceID: int, lastReceivedSeqID: int, receivedSeqIds: Bitfield):
         """
         Sends an ack message for the given sequence ID
 
         :param sequenceID: The sequence ID to acknowledge
         :return:
         """
-        message = createMessage(MessageHeader.Ack if sequenceID == self.__lastReceivedSeqID else MessageHeader.AckExtra)
-        message.putUInt16(self.__lastReceivedSeqID)
-        message.putUInt16(self.__acksBitfield)
+        message = createMessage(MessageHeader.Ack)
+        message.putUInt16(lastReceivedSeqID)
+        message.putUInt16(receivedSeqIds.first16)
 
-        if (sequenceID != self.__lastReceivedSeqID):
+        if (sequenceID == lastReceivedSeqID):
+            message.putBool(False)
+        else:
+            message.putBool(True)
             message.putUInt16(sequenceID)
 
         self.sendMessage(message)
@@ -432,23 +393,11 @@ class Connection:
         """
         remoteLastReceivedSeqID = message.getUInt16()
         remoteAcksBitField = message.getUInt16()
+        getFromMsg = message.getBool()
+        ackedSeqID = message.getUInt16() if getFromMsg else remoteLastReceivedSeqID
 
-        self.ackMessage(remoteLastReceivedSeqID)
-        self.updateReceivedAcks(remoteLastReceivedSeqID, remoteAcksBitField)
-
-    def handleAckExtra(self, message: Message):
-        """
-        Handles an ack message for a sequence ID other than the last received one
-
-        :param message: The ack message to handle
-        :return:
-        """
-        remoteLastReceivedSeqID = message.getUInt16()
-        remoteAcksBitField = message.getUInt16()
-        ackSeqID = message.getUInt16()
-
-        self.ackMessage(ackSeqID)
-        self.updateReceivedAcks(remoteLastReceivedSeqID, remoteAcksBitField)
+        self.clearMessage(ackedSeqID)
+        self.__reliable.updateReceivedAcks(remoteLastReceivedSeqID, remoteAcksBitField)
 
     #region Server
 
@@ -461,14 +410,16 @@ class Connection:
         message.putUInt16(self.__id)
         self.sendMessage(message)
 
-    def handleWelcomeResponse(self, message: Message):
+    def handleWelcomeResponse(self, message: Message) -> bool:
         """
         Handles a welcome message on the server
 
         :param message: The welcome message to handle
         :return:
         """
-        self.reliableHandle(message.seqID)
+        if not self.isPending:
+            return False
+
         id = message.getUInt16()
 
         if self.__id != id:
@@ -476,6 +427,7 @@ class Connection:
 
         self.__state = ConnectionState.Connected
         self.resetTimeout()
+        return True
 
     def handleHeartbeat(self, message: Message):
         """
@@ -513,7 +465,6 @@ class Connection:
         :return:
         """
         self.__id = message.getUInt16()
-        self.reliableHandle(self.__id)
         self.__state = ConnectionState.Connected
         self.resetTimeout()
 
@@ -537,7 +488,7 @@ class Connection:
         :return:
         """
         self.__pendingPingId = self.__lastPingID+1
-        self.__pendingPingSendTime = time()
+        self.__pendingPingSendTime = self._peer.current_time
 
         message = createMessage(MessageHeader.Heartbeat)
         message.putInt8(self.__pendingPingId)
@@ -555,9 +506,23 @@ class Connection:
         pingID = message.getUInt8()
 
         if self.__pendingPingId == pingID:
-            self.rtt = max(1, int((time() - self.__pendingPingSendTime) * 1000))
+            self.rtt = max(1, self._peer.current_time - self.__pendingPingSendTime)
 
         self.resetTimeout()
+    #endregion
+
+    #region Events
+
+    def onNotifyDelivered(self, sequenceID: int):
+        self.__connectionMetrics.deliveredNotify()
+        self.notifyDelivered(sequenceID)
+        self.__updateLossViolations()
+
+    def onNotifyLost(self, sequenceID: int):
+        self.__connectionMetrics.lostNotify()
+        self.notifyLost(sequenceID)
+        self.__updateLossViolations()
+
     #endregion
 
     #endregion

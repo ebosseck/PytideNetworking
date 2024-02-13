@@ -77,7 +77,7 @@ class DisconnectReason(IntEnum):
     """
     The client requested to be disconencted
     """
-
+    PoorConnection: int = 7
 
 REJECT_REASON_STR = {
     RejectReason.NoConnection: CR_NO_CONNECTION,
@@ -103,7 +103,8 @@ DISCONNECT_REASON_STR = {
     DisconnectReason.TimedOut: DC_TIMED_OUT,
     DisconnectReason.Kicked: DC_KICKED,
     DisconnectReason.ServerStopped: DC_SERVER_STOPPED,
-    DisconnectReason.Disconected: DC_DISCONNECTED
+    DisconnectReason.Disconected: DC_DISCONNECTED,
+    DisconnectReason.PoorConnection: DC_POOR_CONNECTION
 }
 
 
@@ -117,6 +118,7 @@ def disconnectReasonToString(disconnectReason: Union[DisconnectReason, int]) -> 
     return UNKNOWN_REASON
 
 
+# internal read-only
 class MessageToHandle:
     """
     Struct for handling messages
@@ -147,9 +149,13 @@ class Peer:
         :param logName:
         """
         super(Peer, self).__init__()
+        self._useMessageHandlers: bool = True  # TODO: Implement
         self.__logName = logName
 
-        self.timeout_time = 5000
+        self._defaultTimeout = 5000
+
+        self.__timeout_time = self._defaultTimeout
+        self._connectTimeoutTime = 10000
         self.heartbeat_interval = 1000
         self.current_time = 0
         self.__startTime = time()
@@ -158,12 +164,19 @@ class Peer:
         self.eventQueue: PriorityQueue = PriorityQueue(0)
 
 
+    @property
+    def timeoutTime(self):
+        return self.__timeout_time
+
+    @timeoutTime.setter
+    def timeoutTime(self, value: int):
+        self.__timeout_time = value
+
     def startTime(self):
         """
         Starts tracking how much time has passed.
         :return:
         """
-        self.current_time = 0
         self.__startTime = time()
 
     def stopTime(self):
@@ -236,4 +249,14 @@ class Peer:
         :return:
         """
         # Not implemented here
+        pass
+
+    def disconnect(self, connection: "Connection", reason: Union[DisconnectReason, int]):
+        """
+        Disconnects the connection in question. Necessary for connections to be able to initiate disconnections (like in the case of poor connection quality).
+
+        :param The connection to disconnect.
+        :param The reason why the connection is being disconnected.
+        :return:
+        """
         pass

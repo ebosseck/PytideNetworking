@@ -1,3 +1,4 @@
+# Updated to 2.1.0
 from typing import Optional, Dict, Callable, Union, Tuple, List
 
 from .connection import Connection
@@ -20,6 +21,7 @@ class Client(Peer):
         :param transport: The transport to use for sending and receiving data.
         """
         super(Client, self).__init__()
+
         self.Connected: EventHandler = EventHandler()
         """
         Invoked when a connection to the server is established.
@@ -78,9 +80,14 @@ class Client(Peer):
         if self.__transport is None:
             self.__transport = UDPClient()
 
-        self.__connectBytes: Optional[bytearray] = None
+        #self.__connectBytes: Optional[bytearray] = None
+        #"""
+        #Custom data to include when connecting.
+        #"""
+
+        self.__connectMessage: Optional[Message] = None
         """
-        Custom data to include when connecting.
+        The message sent when connecting, may include custom data
         """
 
     #region Properties
@@ -117,6 +124,17 @@ class Client(Peer):
         :return:
         """
         return self.__connection.smoothRTT
+
+    @property
+    def timeoutTime(self):
+        """
+        """
+        pass
+
+    @timeoutTime.setter
+    def timeoutTime(self, value):
+        self.defaultTimeout = value
+        #TODO
 
     # region Connection State
     @property
@@ -196,7 +214,7 @@ class Client(Peer):
         self.__transport = transport
 
     def connect(self, hostAddress: Tuple[str, int], maxConnectionAttempts: int = 5, messageHandlerGroupId: int = 0,
-                message: Message = None):
+                message: Message = None, useMessageHandlers:bool = True):
         """
         Attempts to connect to a server at the given host address
 
@@ -204,6 +222,7 @@ class Client(Peer):
         :param maxConnectionAttempts: How many connection attempts to make before giving up
         :param messageHandlerGroupId: Currently unused
         :param message: Data that should be sent to the server with the connection attempt.
+        :param useMessageHandlers: if true, use message handlers (default behaviour)
         Use message.createInternal() to get an empty message instance
         :return:
         """
@@ -217,21 +236,26 @@ class Client(Peer):
             self.unsubToTransportEvents()
             return success
 
-        self.__connection = connection
+        self.__connection: Connection = connection
 
         self.__maxConnectionAttempts = maxConnectionAttempts
         self.__connectionAttempts = 0
-        self.__connection._peer = self
+        #self.__connection._peer = self
+        self.__connection.initialize(self, self.defaultTimeout)
         increaseActiveCount()
 
-        #TODO: Register message handlers automatically from attributes ?
+        if useMessageHandlers:
+            pass
+            #TODO: Register message handlers automatically from attributes ?
 
+        self.__connectMessage: Message = createMessage(MessageHeader.Connect)
         if message is not None:
-            self.__connectBytes = message.createConnectBytes()
+            if message.readBit != 0:
+                logger.error("Use the parameterless 'Message.Create()' overload when setting connection attempt data!")
+            self.__connectMessage.addMessage(message)
             message.release()
-        else:
-            self.__connectBytes = None
 
+        self.startTime()
         self.heartbeat()
         logger.info("Connecting to {}:{}".format(*hostAddress))
 
@@ -263,10 +287,10 @@ class Client(Peer):
         """Checks the connection health"""
         if self.isConnecting:
             if self.__connectionAttempts < self.__maxConnectionAttempts:
-                message: Message = createMessage(MessageHeader.Connect)
-                if self.__connectBytes is not None:
-                    message.putBytes(self.__connectBytes)
-                self.send(message)
+                #message: Message = createMessage(MessageHeader.Connect)
+                #if self.__connectBytes is not None:
+                #   message.putBytes(self.__connectBytes)
+                self.send(self.__connectMessage, False)
                 self.__connectionAttempts += 1
             else:
                 self.localDisconnect(DisconnectReason.NeverConnected)
@@ -308,16 +332,18 @@ class Client(Peer):
         # Internal Messages
         elif header == MessageHeader.Ack:
             self.__connection.handleAck(message)
-        elif header == MessageHeader.AckExtra:
-            self.__connection.handleAckExtra(message)
+        #elif header == MessageHeader.AckExtra:
+        #    self.__connection.handleAckExtra(message)
         elif header == MessageHeader.Connect:
             self.__connection.setPending()
         elif header == MessageHeader.Reject:
-            reason = message.getUInt8()
-            if reason == RejectReason.Pending:
-                self.__connection.setPending()
-            elif not self.isConnected:
-                self.localDisconnect(reason=DisconnectReason.ConnectionRejected, message=message, rejectReason=reason)
+            #reason = message.getUInt8()
+            #if reason == RejectReason.Pending:
+            #    self.__connection.setPending()
+            #elif not self.isConnected:
+            #    self.localDisconnect(reason=DisconnectReason.ConnectionRejected, message=message, rejectReason=reason)
+            if not self.isConnected:
+                self.localDisconnect(reason=DisconnectReason.ConnectionRejected, message=message, rejectReason=message.getByte())
         elif header == MessageHeader.Heartbeat:
             self.__connection.handleHeartbeatResponse(message=message)
         elif header == MessageHeader.Disconnect:
@@ -331,29 +357,33 @@ class Client(Peer):
         elif header == MessageHeader.ClientDisconnected:
             self.onClientDisconnected(message.getUInt16())
         else:
-            logger.warning("Unexpected message Header '{}'. Discarding Message.".format(header))
+            logger.warning("Unexpected message header '{}'. Discarding {} bytes.".format(header, message.bytesInUse))
 
         message.release()
 
-    def send(self, message: Message, shouldRelease: bool = True):
+    def send(self, message: Message, shouldRelease: bool = True) -> int:
         """
         Sends the given message
         :param message: Message to send
         :param shouldRelease: True if the message should be released back into the pool. Defaults to true.
         :return:
         """
-        self.__connection.sendMessage(message, shouldRelease)
+        return self.__connection.sendMessage(message, shouldRelease)
 
-    def disconnect(self):
+    def disconnect(self, connection: Connection = None, reason: DisconnectReason = None):
         """
         Disconnect this client from the server
         :return:
         """
-        if self.__connection is None or self.isNotConnected:
-            return
+        if connection is None and reason is None:
+            if self.__connection is None or self.isNotConnected:
+                return
 
-        self.send(createMessage(MessageHeader.Disconnect))
-        self.localDisconnect(DisconnectReason.Disconected)
+            self.send(createMessage(MessageHeader.Disconnect))
+            self.localDisconnect(DisconnectReason.Disconected)
+        else:
+            if connection.isConnected and connection.canQualityDisconnect:
+                self.localDisconnect(reason)
 
     def localDisconnect(self, reason: Union[DisconnectReason, int], message: Message = None,
                         rejectReason: Union[RejectReason, int] = RejectReason.NoConnection):
@@ -390,7 +420,8 @@ class Client(Peer):
         What to do when the transport establishes a connection.
         :return:
         """
-        self.startTime()
+        pass
+        #self.startTime()
 
     def onTransportConnectionFailed(self):
         """
@@ -420,6 +451,8 @@ class Client(Peer):
         :return:
         """
         logger.info("Connected Successfully !")
+        self.__connectMessage.release()
+        self.__connectMessage = None
         self.Connected()
 
     def onConnectionFailed(self, rejectReason: Union[RejectReason, int], message: Message = None):
@@ -430,8 +463,11 @@ class Client(Peer):
         :param message: Additional data to the failed connection attempt
         :return:
         """
+        self.__connectMessage.release()
+        self.__connectMessage = None
         logger.info("Connection to server failed: {}".format(rejectReasonToString(rejectReason)))
         self.ConnectionFailed(message)
+
 
     def onMessageReceived(self, message: Message):
         """
@@ -442,10 +478,11 @@ class Client(Peer):
         """
         messageID = message.msgID
         self.MessageReceived(self.__connection, messageID, message)
-        if messageID in self.__messageHandlers:
-            self.__messageHandlers[messageID](message)
-        else:
-            logger.warning("No message handler method found for message ID '{}'".format(messageID))
+        if self._useMessageHandlers:
+            if messageID in self.__messageHandlers:
+                self.__messageHandlers[messageID](message)
+            else:
+                logger.warning("No message handler method found for message ID '{}'".format(messageID))
 
     def onDisconnected(self, reason: Union[DisconnectReason, int], message: Message):
         """

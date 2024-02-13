@@ -11,7 +11,7 @@ class ValueSerialisationTests(unittest.TestCase):
         bytes = b'ABCDEFG'
 
         message = Message()
-        message.prepareForUse()
+        message.init()
 
         message.putBytes(bytes)
         readBytes = message.getBytes(len(bytes))
@@ -22,7 +22,7 @@ class ValueSerialisationTests(unittest.TestCase):
         value = True
 
         message = Message()
-        message.prepareForUse()
+        message.init()
 
         message.putBool(value)
         readValue = message.getBool()
@@ -32,7 +32,7 @@ class ValueSerialisationTests(unittest.TestCase):
     def testMessageBoolArray(self):
         value = [True, False, True, False, False, True, True, True, False]
         message = Message()
-        message.prepareForUse()
+        message.init()
         message.putBoolArray(value)
         readValue = message.getBoolArray()
 
@@ -43,7 +43,7 @@ class ValueSerialisationTests(unittest.TestCase):
         value = -1
 
         message = Message()
-        message.prepareForUse()
+        message.init()
 
         message.putInt8(value)
         readValue = message.getInt8()
@@ -52,7 +52,7 @@ class ValueSerialisationTests(unittest.TestCase):
 
         value = 0xff
 
-        message.prepareForUse()
+        message.init()
 
         message.putUInt8(value)
         readValue = message.getUInt8()
@@ -64,7 +64,7 @@ class ValueSerialisationTests(unittest.TestCase):
         value = list(range(-21, 21))
 
         message = Message()
-        message.prepareForUse()
+        message.init()
 
         message.putInt8Array(value)
         readValue = message.getInt8Array()
@@ -73,7 +73,7 @@ class ValueSerialisationTests(unittest.TestCase):
 
         value = list(range(42))
 
-        message.prepareForUse()
+        message.init()
 
         message.putUInt8Array(value)
         readValue = message.getUInt8Array()
@@ -85,7 +85,7 @@ class ValueSerialisationTests(unittest.TestCase):
         value = 0x7fff
 
         message = Message()
-        message.prepareForUse()
+        message.init()
 
         message.putInt16(value)
         readValue = message.getInt16()
@@ -94,7 +94,7 @@ class ValueSerialisationTests(unittest.TestCase):
 
         value = 0xffff
 
-        message.prepareForUse()
+        message.init()
 
         message.putUInt16(value)
         readValue = message.getUInt16()
@@ -106,7 +106,7 @@ class ValueSerialisationTests(unittest.TestCase):
         value = self.randomListInt(10, -2**14, 2**14)
 
         message = Message()
-        message.prepareForUse()
+        message.init()
 
         message.putInt16Array(value)
         readValue = message.getInt16Array()
@@ -115,7 +115,7 @@ class ValueSerialisationTests(unittest.TestCase):
 
         value = self.randomListInt(10, 0, 2**15)
 
-        message.prepareForUse()
+        message.init()
 
         message.putUInt16Array(value)
         readValue = message.getUInt16Array()
@@ -128,7 +128,7 @@ class ValueSerialisationTests(unittest.TestCase):
         value = 0x7fff_ffff
 
         message = Message()
-        message.prepareForUse()
+        message.init()
 
         message.putInt32(value)
         readValue = message.getInt32()
@@ -137,7 +137,7 @@ class ValueSerialisationTests(unittest.TestCase):
 
         value = 0xffff_ffff
 
-        message.prepareForUse()
+        message.init()
 
         message.putUInt32(value)
         readValue = message.getUInt32()
@@ -149,7 +149,7 @@ class ValueSerialisationTests(unittest.TestCase):
         value = self.randomListInt(10, -2**30, 2**30)
 
         message = Message()
-        message.prepareForUse()
+        message.init()
 
         message.putInt32Array(value)
         readValue = message.getInt32Array()
@@ -158,7 +158,7 @@ class ValueSerialisationTests(unittest.TestCase):
 
         value = self.randomListInt(10, 0, 2**31)
 
-        message.prepareForUse()
+        message.init()
 
         message.putUInt32Array(value)
         readValue = message.getUInt32Array()
@@ -170,7 +170,7 @@ class ValueSerialisationTests(unittest.TestCase):
         value = 0x7fff_ffff_ffff_ffff
 
         message = Message()
-        message.prepareForUse()
+        message.init()
 
         message.putInt64(value)
         readValue = message.getInt64()
@@ -180,7 +180,7 @@ class ValueSerialisationTests(unittest.TestCase):
         value = 0xffff_ffff_ffff_ffff
 
         message = Message()
-        message.prepareForUse()
+        message.init()
 
         message.putUInt64(value)
         readValue = message.getUInt64()
@@ -192,7 +192,7 @@ class ValueSerialisationTests(unittest.TestCase):
         value = self.randomListInt(10, -2**62, 2**62)
 
         message = Message()
-        message.prepareForUse()
+        message.init()
 
         message.putInt64Array(value)
         readValue = message.getInt64Array()
@@ -201,7 +201,7 @@ class ValueSerialisationTests(unittest.TestCase):
 
         value = self.randomListInt(10, 0, 2**63)
 
-        message.prepareForUse()
+        message.init()
 
         message.putUInt64Array(value)
         readValue = message.getUInt64Array()
@@ -213,7 +213,7 @@ class ValueSerialisationTests(unittest.TestCase):
         value = math.pi
 
         message = Message()
-        message.prepareForUse()
+        message.init()
 
         message.putFloat(value)
         readValue = message.getFloat()
@@ -225,7 +225,7 @@ class ValueSerialisationTests(unittest.TestCase):
         value = self.randomListFloat(10, -100, 100)
 
         message = Message()
-        message.prepareForUse()
+        message.init()
 
         message.putFloatArray(value)
         readValue = message.getFloatArray()
@@ -238,7 +238,7 @@ class ValueSerialisationTests(unittest.TestCase):
         value = math.pi
 
         message = Message()
-        message.prepareForUse()
+        message.init()
 
         message.putDouble(value)
         readValue = message.getDouble()
@@ -250,7 +250,7 @@ class ValueSerialisationTests(unittest.TestCase):
         value = self.randomListFloat(10, -100, 100)
 
         message = Message()
-        message.prepareForUse()
+        message.init()
 
         message.putDoubleArray(value)
         readValue = message.getDoubleArray()
@@ -262,7 +262,7 @@ class ValueSerialisationTests(unittest.TestCase):
         value = "Lorem ipsum in dolor sit amen"
 
         message = Message()
-        message.prepareForUse()
+        message.init()
 
         message.putString(value)
         readValue = message.getString()
@@ -273,7 +273,7 @@ class ValueSerialisationTests(unittest.TestCase):
         value = ["Lorem ipsum", " in dolor", " sit amen"]
 
         message = Message()
-        message.prepareForUse()
+        message.init()
 
         message.putStringArray(value)
         readValue = message.getStringArray()

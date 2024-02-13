@@ -1,6 +1,6 @@
 \renewcommand{\namespace}{\nsLowLevel}
 
-\newenvironment{messagedef}{\rowcolors{1}{blue!10}{white} \begin{longtable}{||p{3cm}|p{3cm}|p{8cm}||}\hline \rowcolor{blue!50!} \textbf{Name} & \textbf{Type} & \textbf{Description} \\ \hline \hline}{\end{longtable}}
+\newenvironment{messagedef}{\rowcolors{1}{blue!10}{white} \begin{longtable}{||p{3cm}|p{3cm}|p{8cm}||}\hline \rowcolor{blue!50!} \textbf{Name} & \textbf{Bit Count} & \textbf{Description} \\ \hline \hline}{\end{longtable}}
 
 \newenvironment{enumdef}{\rowcolors{1}{blue!10}{white} \begin{longtable}{||p{3cm}|p{3cm}|p{8cm}||}\hline \rowcolor{blue!50!} \textbf{Name} & \textbf{Value} & \textbf{Description} \\ \hline \hline}{\end{longtable}}
 
@@ -11,6 +11,8 @@
 \newcommand{\msgheaderUnreliable}[1]{\rowcolor{yellow!50!}\msgvalues{Message Type}{byte}{ Value set to #1} \rowcolor{yellow!50!}\msgvalues{Message ID}{ushort}{Message ID} \hline}
 \newcommand{\msgheaderReliableNoID}[1]{\rowcolor{yellow!50!}\msgvalues{Message Type}{byte}{ Value set to #1}  \rowcolor{yellow!50!}\msgvalues{Sequence ID}{ushort}{Sequence ID}\hline}
 \newcommand{\msgheaderUnreliableNoID}[1]{\rowcolor{yellow!50!}\msgvalues{Message Type}{byte}{ Value set to #1} \hline}
+
+\newcommand{\msgheaderNotify}[1]{\rowcolor{yellow!50!}\msgvalues{Message Type}{4}{ Value set to #1} \rowcolor{yellow!50!}\msgvalues{Message ID}{ushort}{Message ID} \hline}
 
 \newlength{\tableft}
 \newlength{\tabright}
@@ -46,15 +48,15 @@
 	\hline
 	Ack & 1 & An internal unreliable ack message \newline \textbf{Unreliable} \\
 	\hline
-	AckExtra & 2 & An internal unreliable ack message, used when acknowledging a sequence ID other than the last received one \newline \textbf{Unreliable} \\
+	Connect & 2 & An internal unreliable connect message\newline \textbf{Unreliable} \\
 	\hline
-	Connect & 3 & An internal unreliable connect message\newline \textbf{Unreliable} \\
+	Reject & 3 & An internal unreliable connection rejection message. \newline \textbf{Unreliable} \\
 	\hline
-	Reject & 4 & An internal unreliable connection rejection message. \newline \textbf{Unreliable} \\
+	Heartbeat & 4 & An internal unreliable heartbeat message. \newline \textbf{Unreliable} \\
 	\hline
-	Heartbeat & 5 & An internal unreliable heartbeat message. \newline \textbf{Unreliable} \\
+	Disconnect & 5 &  An internal unreliable disconnect message.\newline \textbf{Unreliable} \\
 	\hline
-	Disconnect & 6 &  An internal unreliable disconnect message.\newline \textbf{Unreliable} \\
+	Notify & 6 & A notify message. \newline \textbf{Notify-Type} \\
 	\hline
 	Reliable & 7 &  A reliable user message. \newline \textbf{Reliable} \\
 	\hline
@@ -265,6 +267,18 @@ UTF-8 Encoded String
 	\msgvalues{value}{string[]}{Strings added sequentially using the method for adding single Strings.}
 \end{messagedef}
 
+\subsection{VarLong}
+
+\begin{messagedef}
+	\msgvalues{value}{variable}{UTF-Like encoding: left most bit used in order to indicate continuation (1: not last byte, 0: is last byte). Next seven bits are then the actual value of that byte. Maximum 64 bit integers supported in Riptide. Encoded such that the \textbf{signed bit is the right most bit}, in order to minimize bits for negative numbers}
+\end{messagedef}
+
+\subsection{VarULong}
+
+\begin{messagedef}
+	\msgvalues{value}{variable}{UTF-Like encoding: left most bit used in order to indicate continuation (1: not last byte, 0: is last byte). Next seven bits are then the actual value of that byte. Maximum 64 bit integers supported in Riptide}
+\end{messagedef}
+
 \subsection{Vector2}
 
 \begin{messagedef}
@@ -353,16 +367,16 @@ An internal unreliable ack message
 	\msgvalues{AcksBitfield}{ushort}{Acks (binary flags)}
 \end{messagedef}
 
-\subsection{AckExtra}
-\seclbl{message::ackextra}
-An internal unreliable ack message, used when acknowledging a sequence ID other than the last received one
+%\subsection{AckExtra}
+%\seclbl{message::ackextra}
+%An internal unreliable ack message, used when acknowledging a sequence ID other than the last received one
 
-\begin{messagedef}
-	\msgheaderUnreliableNoID{2}
-	\msgvalues{Last\-Received\-SeqId}{ushort}{Last remote sequence ID}
-	\msgvalues{AcksBitfield}{ushort}{Acks (binary flags)}
-	\msgvalues{forSeqId}{ushort}{Sequence ID this ack is for}
-\end{messagedef}
+%\begin{messagedef}
+%	\msgheaderUnreliableNoID{2}
+%	\msgvalues{Last\-Received\-SeqId}{ushort}{Last remote sequence ID}
+%	\msgvalues{AcksBitfield}{ushort}{Acks (binary flags)}
+%	\msgvalues{forSeqId}{ushort}{Sequence ID this ack is for}
+%\end{messagedef}
 
 
 \subsection{Connect}
@@ -370,7 +384,7 @@ An internal unreliable ack message, used when acknowledging a sequence ID other 
 An internal unreliable connect message
 
 \begin{messagedef}
-	\msgheaderUnreliableNoID{3}
+	\msgheaderUnreliableNoID{2}
 	\msgvaluesOptional{connectBytes}{byte[]}{Custom data to include when connecting. \textbf{Length of the Array is not included in the message}}
 \end{messagedef}
 
@@ -379,7 +393,7 @@ An internal unreliable connect message
 An internal unreliable connection rejection message
 
 \begin{messagedef}
-	\msgheaderUnreliableNoID{4}
+	\msgheaderUnreliableNoID{3}
 	\msgvalues{RejectReason}{byte}{Reason for the rejection of the connection. See also \secnref{enum::reject}}
 	\msgvaluesOptional{rejectMessage}{byte[]}{custom byte[] containing additional data. See \secnref{encoding} for value. Length of the array is not included. If this field is present, \textbf{RejectReason must be set to Custom}}
 \end{messagedef}
@@ -389,7 +403,7 @@ An internal unreliable connection rejection message
 An internal unreliable heartbeat message
 
 \begin{messagedef}
-	\msgheaderUnreliableNoID{5}
+	\msgheaderUnreliableNoID{4}
 	\msgvalues{Ping ID}{byte}{Ping ID of the message}
 	\msgvalues{RTT}{short}{Round trip time, -1 if not calculated jet}
 \end{messagedef}
@@ -400,9 +414,16 @@ An internal unreliable heartbeat message
 An internal unreliable disconnect message
 
 \begin{messagedef}
-	\msgheaderUnreliableNoID{6}
+	\msgheaderUnreliableNoID{5}
 	\msgvalues{Reason}{byte}{Disconnect reason, see also \secnref{enum::disconnect}}
 	\msgvaluesOptional{Message}{byte[]}{custom byte[] containing additional data. See \secnref{encoding} for value. Length of the array is not included. If this field is present, \textbf{Disconnect Reason must be set to Kicked}}
+\end{messagedef}
+
+\subsection{Notify}
+\seclbl{message::Notify}
+
+\begin{messagedef}
+	\msgheaderNotify{6}
 \end{messagedef}
 
 \subsection{Reliable}
@@ -468,6 +489,7 @@ See \texttt{Core/Peer.cs}
 	4 & Kicked & The client was forcibly disconnected by the server \\ \hline
 	5 & ServerStopped & The server shut down \\ \hline
 	6 & Disconnected & The disconnection was initiated by the client \\ \hline
+	7 & PoorConnection & The connection's loss and/or resend rates exceeded the maximum acceptable thresholds, or a reliably sent message could not be delivered. \\ \hline
 \end{enumdef}
 
 \chapter{Protocol}

@@ -1,9 +1,14 @@
+# Updated to 2.1.0
+
 import struct
+from typing import List, Union
 try:
     from typing import Literal
 except ImportError:
     from typing_extensions import Literal
 
+READABLE_ARRAY = Union[bytes, bytearray, List[int]]
+WRITEABLE_ARRAY = Union[bytearray, List[int]]
 
 FLOAT_LITTLE = "<f"
 DOUBLE_LITTLE = "<d"
@@ -11,7 +16,352 @@ DOUBLE_LITTLE = "<d"
 FLOAT_BIG = ">f"
 DOUBLE_BIG = ">d"
 
+BITS_PER_BYTE = 8
+BITS_PER_SEGMENT = 8 * BITS_PER_BYTE
+
+
+#region ZigZag Encoding
+
+def zigzagEncode(value: int, bitcount: int):
+    return (value >> (bitcount-1)) ^ (value << 1)
+
+
+def zigzagEncode32(value: int):
+    return zigzagEncode(value, 32)
+
+
+def zigzagEncode64(value: int):
+    return zigzagEncode(value, 64)
+
+
+def zigzagDecode(value: int):
+    return (value >> 1) ^ -(value&1)
+
+#endregion
+
+#region bits
+
+
+#region setBit
+def setBits(bitfield: int, amount: int, array: WRITEABLE_ARRAY, startBit: int):
+    if amount <= 8:
+        return setBits8(bitfield, amount, array, startBit)
+    elif amount <= 16:
+        return setBits16(bitfield, amount, array, startBit)
+    elif amount <= 32:
+        return setBits32(bitfield, amount, array, startBit)
+    elif amount <= 64:
+        return setBits64(bitfield, amount, array, startBit)
+
+
+def setBits8(bitfield: int, amount: int, array: WRITEABLE_ARRAY, startBit: int):
+    mask = ((1<<amount) - 1)&0xff
+    bitfield &= mask
+    invMask = ~mask
+    pos = startBit // BITS_PER_BYTE
+    bit = startBit % BITS_PER_BYTE
+    if bit == 0:
+        array[pos] = (bitfield | (array[pos] & invMask)) &0xff
+    else:
+        array[pos] = ((bitfield << bit) | (array[pos] & ~(mask << bit))) & 0xff
+        array[pos+1] = ((bitfield >> (8-bit)) | (array[pos + 1] & (invMask >> (8-bit)))) & 0xff
+    return array
+
+def setBits16(bitfield: int, amount: int, array: WRITEABLE_ARRAY, startBit: int):
+    mask = ((1 << amount) - 1) & 0xffff
+    bitfield &= mask
+    invMask = ~mask
+    pos = startBit // BITS_PER_BYTE
+    bit = startBit % BITS_PER_BYTE
+    if bit == 0:
+        array[pos] = (bitfield | (array[pos] & invMask)) &0xff
+        array[pos+1] = (bitfield >> 8 | (array[pos+1] & (invMask >> 8))) & 0xff
+    else:
+        array[pos] = ((bitfield << bit) | (array[pos] & ~(mask << bit))) & 0xff
+        bitfield >>= 8 - bit
+        invMask >>= 8 - bit
+        array[pos + 1] = (bitfield | (array[pos+1] & invMask)) & 0xff
+        array[pos + 2] = ((bitfield >> 8) | (array[pos + 2] & (invMask >> 8))) & 0xff
+    return array
+
+def setBits32(bitfield: int, amount: int, array: WRITEABLE_ARRAY, startBit: int):
+    mask = ((1 << amount) - 1) & 0xffffffff
+    bitfield &= mask
+    invMask = ~mask
+    pos = startBit // BITS_PER_BYTE
+    bit = startBit % BITS_PER_BYTE
+    if bit == 0:
+        array[pos] = (bitfield | (array[pos] & invMask)) & 0xff
+        array[pos + 1] = (bitfield >> 8 | (array[pos + 1] & invMask >> 8)) & 0xff
+        array[pos + 2] = (bitfield >> 16 | (array[pos + 2] & invMask >> 16)) & 0xff
+        array[pos + 3] = (bitfield >> 24 | (array[pos + 3] & invMask >> 24)) & 0xff
+    else:
+        array[pos] = ((bitfield << bit) | (array[pos] & ~(mask << bit))) & 0xff
+        bitfield >>= 8 - bit
+        invMask >>= 8 - bit
+        array[pos + 1] = (bitfield | (array[pos + 1] & invMask)) & 0xff
+        array[pos + 2] = ((bitfield >> 8) | (array[pos + 2] & (invMask >> 8))) & 0xff
+        array[pos + 3] = ((bitfield >> 16) | (array[pos + 3] & (invMask >> 16))) & 0xff
+        array[pos + 4] = ((bitfield >> 24) | (array[pos + 4] & (invMask >> 24))) & 0xff
+    return array
+
+def setBits64(bitfield: int, amount: int, array: WRITEABLE_ARRAY, startBit: int):
+    mask = ((1 << amount) - 1) & 0xffffffffffffffff
+    bitfield &= mask
+    invMask = ~mask
+    pos = startBit // BITS_PER_BYTE
+    bit = startBit % BITS_PER_BYTE
+    if bit == 0:
+        array[pos] = (bitfield | (array[pos] & invMask)) & 0xff
+        array[pos + 1] = (bitfield >> 8 | (array[pos + 1] & invMask >> 8)) & 0xff
+        array[pos + 2] = (bitfield >> 16 | (array[pos + 2] & invMask >> 16)) & 0xff
+        array[pos + 3] = (bitfield >> 24 | (array[pos + 3] & invMask >> 24)) & 0xff
+        array[pos + 4] = (bitfield >> 32 | (array[pos + 4] & invMask >> 32)) & 0xff
+        array[pos + 5] = (bitfield >> 40 | (array[pos + 5] & invMask >> 40)) & 0xff
+        array[pos + 6] = (bitfield >> 48 | (array[pos + 6] & invMask >> 48)) & 0xff
+        array[pos + 7] = (bitfield >> 56 | (array[pos + 7] & invMask >> 56)) & 0xff
+    else:
+        array[pos] = ((bitfield << bit) | (array[pos] & ~(mask << bit))) & 0xff
+        bitfield >>= 8 - bit
+        invMask >>= 8 - bit
+        array[pos + 1] = (bitfield | (array[pos + 1] & invMask)) & 0xff
+        array[pos + 2] = ((bitfield >> 8) | (array[pos + 2] & (invMask >> 8))) & 0xff
+        array[pos + 3] = ((bitfield >> 16) | (array[pos + 3] & (invMask >> 16))) & 0xff
+        array[pos + 4] = ((bitfield >> 24) | (array[pos + 4] & (invMask >> 24))) & 0xff
+        array[pos + 5] = ((bitfield >> 32) | (array[pos + 5] & (invMask >> 32))) & 0xff
+        array[pos + 6] = ((bitfield >> 40) | (array[pos + 6] & (invMask >> 40))) & 0xff
+        array[pos + 7] = ((bitfield >> 48) | (array[pos + 7] & (invMask >> 48))) & 0xff
+        array[pos + 8] = ((bitfield >> 56) | (array[pos + 8] & (invMask >> 56))) & 0xff
+    return array
+def setBitsFromBytes(bitfield: READABLE_ARRAY, amount: int, array: WRITEABLE_ARRAY, startBit: int):
+    pos: int = startBit // BITS_PER_BYTE
+    bit: int = startBit % BITS_PER_BYTE
+    byte_count = amount // BITS_PER_BYTE
+    bits_remaining = amount % BITS_PER_BYTE
+    if bit == 0:
+        for i in range(byte_count):
+            array[pos + i] = (bitfield[i]) & 0xff
+    else:
+        for i in range(byte_count):
+            array[pos + i] = ((bitfield[i] << bit) & (0xff << bit)) | (array[pos + i] & (0xff >> (8 - bit)))
+            array[pos + i + 1] = ((bitfield[i] >> (8 - bit)) & (0xff >> (8 - bit))) | (array[pos + i + 1] & (0xff << bit))
+
+    if bits_remaining != 0:
+        mask = ((1 << amount) - 1) & 0xff
+        invmask = ~mask
+        bits = bitfield[byte_count + 1] & mask
+        array[pos + byte_count] = ((bits << bit) & (mask << bit)) | (array[pos + byte_count] & (invmask >> (8 - bit)))
+        array[pos + byte_count + 1] = ((bits >> (8 - bit)) & (mask >> (8 - bit))) | (array[pos + byte_count + 1] & (invmask << bit))
+    return array
+
+def setBitsSegmentArray(bitfield: int, amount: int, array: List[int], startBit: int):
+    mask = (1 << (amount-1) << 1) - 1
+    bitfield &= mask
+    pos = startBit // BITS_PER_SEGMENT
+    bit = startBit % BITS_PER_SEGMENT
+    if bit == 0:
+        array[pos] = bitfield | array[pos] & ~mask
+    elif bit + amount < BITS_PER_SEGMENT:
+        array[pos] = (bitfield << bit) | (array[pos] & ~(mask << bit))
+    else:
+        array[pos] = (bitfield << bit) | (array[pos] & ~(mask << bit))
+        array[pos + 1] = (bitfield >> (BITS_PER_SEGMENT - bit)) | (array[pos + 1] & ~(mask >> (BITS_PER_SEGMENT - bit)))
+#endregion
+
+
+#region getbits
+def getBits(amount: int, array: READABLE_ARRAY, startBit: int) -> int:
+    bitfield = 0
+    if amount <= 8:
+        bitfield = byteFromBits(array, startBit)
+    elif amount <= 16:
+        bitfield = byteFromBits(array, startBit)
+    elif amount <= 32:
+        bitfield = byteFromBits(array, startBit)
+    elif amount <= 64:
+        bitfield = byteFromBits(array, startBit)
+    bitfield &= ((1 << amount) - 1)
+    return bitfield
+
+def getBitsToBytes(array: READABLE_ARRAY, count: int, startBit: int) -> READABLE_ARRAY:
+    pos: int = startBit // BITS_PER_BYTE
+    bit: int = startBit % BITS_PER_BYTE
+
+    if bit == 0:
+        return array[pos:pos+count]
+    else:
+        val = []
+        for i in range(count):
+            val.append((array[i] >> bit) | (array[i] << (8 - bit)))
+        return bytes(val)
+#endregion
+
+
+#region byte
+def byteToBits(value: int, array: WRITEABLE_ARRAY, startBit: int):
+    pos = startBit // BITS_PER_BYTE
+    bit = startBit % BITS_PER_BYTE
+
+    if bit == 0:
+        array[pos] = value & 0xff
+    else:
+        array[pos] |= (value << bit) & 0xff
+        array[pos+1] = (value >> (8 - bit)) & 0xff
+    return array
+
+
+def byteFromBits(array: READABLE_ARRAY, startBit: int, byteorder: Literal['big', 'little'] = 'little'):
+    pos: int = startBit // BITS_PER_BYTE
+    bit: int = startBit % BITS_PER_BYTE
+
+    val = array[pos]
+    if bit == 0:
+        return val
+
+    val >>= bit
+    return val | array[pos+1] << (8 - bit)
+
+#endregion
+
+
+#region short
+def ushortToBits(value: int, array: WRITEABLE_ARRAY, startBit: int):
+    pos: int = startBit // BITS_PER_BYTE
+    bit: int = startBit % BITS_PER_BYTE
+    if bit == 0:
+        array[pos] = value & 0xff
+        array[pos + 1] = (value >> 8) & 0xff
+    else:
+        array[pos] |= (value << bit) & 0xff
+        value >>= 8 - bit
+        array[pos + 1] = value & 0xff
+        array[pos + 2] = (value >> 8) & 0xff
+    return array
+
+
+def ushortFromBits(array: READABLE_ARRAY, startBit: int, byteorder: Literal['big', 'little'] = 'little'):
+    pos: int = startBit // BITS_PER_BYTE
+    bit: int = startBit % BITS_PER_BYTE
+
+    val = array[pos] | array[pos+1] << 8
+    if bit == 0:
+        return val
+
+    val >>= bit
+    return val | array[pos+2] << (16 - bit)
+
+#endregion
+
+
+#region int
+
+def uintToBits(value: int, array: WRITEABLE_ARRAY, startBit: int):
+    pos: int = startBit // BITS_PER_BYTE
+    bit: int = startBit % BITS_PER_BYTE
+    if bit == 0:
+        array[pos] = value & 0xff
+        array[pos + 1] = (value >> 8) & 0xff
+        array[pos + 2] = (value >> 16) & 0xff
+        array[pos + 3] = (value >> 24) & 0xff
+    else:
+        array[pos] = (value << bit) & 0xff
+        value >>= 8 - bit
+        array[pos + 1] = value & 0xff
+        array[pos + 2] = (value >> 8) & 0xff
+        array[pos + 3] = (value >> 16) & 0xff
+        array[pos + 4] = (value >> 24) & 0xff
+    return array
+
+
+def uintFromBits(array: READABLE_ARRAY, startBit: int):
+    pos: int = startBit // BITS_PER_BYTE
+    bit: int = startBit % BITS_PER_BYTE
+
+    val = array[pos] | array[pos + 1] << 8 | array[pos + 2] << 16 | array[pos + 3] << 24
+    if bit == 0:
+        return val
+
+    val >>= bit
+    return val | array[pos + 4] << (32 - bit)
+
+
+#endregion
+
+#region long
+
+def ulongToBits(value: int, array: WRITEABLE_ARRAY, startBit: int):
+    pos: int = startBit // BITS_PER_BYTE
+    bit: int = startBit % BITS_PER_BYTE
+    if bit == 0:
+        array[pos] = value & 0xff
+        array[pos + 1] = (value >> 8) & 0xff
+        array[pos + 2] = (value >> 16) & 0xff
+        array[pos + 3] = (value >> 24) & 0xff
+        array[pos + 4] = (value >> 32) & 0xff
+        array[pos + 5] = (value >> 40) & 0xff
+        array[pos + 6] = (value >> 48) & 0xff
+        array[pos + 7] = (value >> 56) & 0xff
+    else:
+        array[pos] = (value << bit) & 0xff
+        value >>= 8 - bit
+        array[pos + 1] = value & 0xff
+        array[pos + 2] = (value >> 8) & 0xff
+        array[pos + 3] = (value >> 16) & 0xff
+        array[pos + 4] = (value >> 24) & 0xff
+        array[pos + 5] = (value >> 32) & 0xff
+        array[pos + 6] = (value >> 40) & 0xff
+        array[pos + 7] = (value >> 48) & 0xff
+        array[pos + 8] = (value >> 56) & 0xff
+    return array
+
+
+def ulongFromBits(array: READABLE_ARRAY, startBit: int):
+    pos: int = startBit // BITS_PER_BYTE
+    bit: int = startBit % BITS_PER_BYTE
+
+    val = array[pos] | array[pos + 1] << 8 | array[pos + 2] << 16 | array[pos + 3] << 24 | array[pos + 4] << 32 | array[pos + 5] << 40 | array[pos + 6] << 48 | array[pos + 7] << 56
+    if bit == 0:
+        return val
+
+    val >>= bit
+    return val | array[pos + 8] << (64 - bit)
+
+#endregion
+
+
+#region bytes
+def bytesToBits(value: READABLE_ARRAY, array: WRITEABLE_ARRAY, startBit: int):
+    pos: int = startBit // BITS_PER_BYTE
+    bit: int = startBit % BITS_PER_BYTE
+    bcount = len(value)
+    if bit == 0:
+        for i in range(bcount):
+            array[pos + i] = (value[i]) & 0xff
+    else:
+        for i in range(bcount):
+            array[pos + i] = ((value[i] << bit) & (0xff << bit)) | (array[pos + i] & (0xff  >> (8 - bit)))
+            array[pos + i + 1] = ((value[i] >> (8 - bit)) & (0xff >> (8 - bit))) | (array[pos + i + 1] & (0xff << bit))
+    return array
+
+
+def bytesFromBits(array: READABLE_ARRAY, count: int, startBit: int) -> READABLE_ARRAY:
+    pos: int = startBit // BITS_PER_BYTE
+    bit: int = startBit % BITS_PER_BYTE
+
+    if bit == 0:
+        return array[pos:pos+count]
+    else:
+        val = []
+        for i in range(count):
+            val.append((array[i] >> bit) | (array[i] << (8 - bit)))
+        return bytes(val)
+#endregion
+
+#endregion
+
+#region Floating point
 #Todo: Switch format strings based on byteorder
+
 def fp32_to_bytes(value: float, byteorder: Literal['big', 'little'] = 'little') -> bytearray:
     """
     Converts a 32 bit float to bytes
@@ -54,3 +404,4 @@ def bytes_to_fp64(value: bytes, byteorder: Literal['big', 'little'] = 'little') 
     :return: the resulting float value
     """
     return struct.unpack(DOUBLE_LITTLE, value)[0]
+#endregion

@@ -114,7 +114,7 @@ class PendingMessage(MessageBase):
         self.__wasCleared = True
         self.release()
 
-def createAndSend(sequenceID: int, message: MessageBase, connection: "Connection"):
+def createPending(sequenceID: int, message: MessageBase, connection: "Connection"):
     """
     Retrieves a PendingMessage instance, initializes it and then sends it.
 
@@ -133,9 +133,6 @@ def createAndSend(sequenceID: int, message: MessageBase, connection: "Connection
 
     pendingMessage.__sendAttempts = 0
     pendingMessage.__wasCleared = False
-
-    connection.pendingMessages[sequenceID] = pendingMessage
-    pendingMessage.trySend()
 
 def createPendingMessage():
     """
