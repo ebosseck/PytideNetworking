@@ -19,7 +19,7 @@ class NotifySequencer(Sequencer):
     def insertHeader(self, message: MessageBase) -> int:
         sequenceID = self.nextSequenceID
         notify_bits = self._lastReceivedSeqId | (self.receivedSeqIds.first8 << (2 * BITS_PER_BYTE)) | (sequenceID << (3 * BITS_PER_BYTE))
-        message.setBits(notify_bits, 5 * BITS_PER_BYTE, HEADER_BITS)
+        message.setNotifyBits(notify_bits)
         return sequenceID
 
     def shouldHandle(self, sequenceID: int) -> bool:

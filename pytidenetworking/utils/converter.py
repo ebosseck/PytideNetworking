@@ -1,7 +1,9 @@
 # Updated to 2.1.0
 
 import struct
+from math import ceil
 from typing import List, Union
+
 try:
     from typing import Literal
 except ImportError:
@@ -39,7 +41,14 @@ def zigzagDecode(value: int):
 
 #endregion
 
+
 #region bits
+
+def ensureSpaceAvailable(bytestream: WRITEABLE_ARRAY, bitpos: int, amount: int):
+    bytes_missing = ceil((bitpos + amount) / BITS_PER_BYTE) - len(bytestream)
+    if bytes_missing > 0:
+        bytestream.extend([0] * bytes_missing)
+    return bytestream
 
 
 #region setBit
@@ -67,6 +76,7 @@ def setBits8(bitfield: int, amount: int, array: WRITEABLE_ARRAY, startBit: int):
         array[pos+1] = ((bitfield >> (8-bit)) | (array[pos + 1] & (invMask >> (8-bit)))) & 0xff
     return array
 
+
 def setBits16(bitfield: int, amount: int, array: WRITEABLE_ARRAY, startBit: int):
     mask = ((1 << amount) - 1) & 0xffff
     bitfield &= mask
@@ -83,6 +93,7 @@ def setBits16(bitfield: int, amount: int, array: WRITEABLE_ARRAY, startBit: int)
         array[pos + 1] = (bitfield | (array[pos+1] & invMask)) & 0xff
         array[pos + 2] = ((bitfield >> 8) | (array[pos + 2] & (invMask >> 8))) & 0xff
     return array
+
 
 def setBits32(bitfield: int, amount: int, array: WRITEABLE_ARRAY, startBit: int):
     mask = ((1 << amount) - 1) & 0xffffffff
@@ -104,6 +115,7 @@ def setBits32(bitfield: int, amount: int, array: WRITEABLE_ARRAY, startBit: int)
         array[pos + 3] = ((bitfield >> 16) | (array[pos + 3] & (invMask >> 16))) & 0xff
         array[pos + 4] = ((bitfield >> 24) | (array[pos + 4] & (invMask >> 24))) & 0xff
     return array
+
 
 def setBits64(bitfield: int, amount: int, array: WRITEABLE_ARRAY, startBit: int):
     mask = ((1 << amount) - 1) & 0xffffffffffffffff
@@ -133,11 +145,14 @@ def setBits64(bitfield: int, amount: int, array: WRITEABLE_ARRAY, startBit: int)
         array[pos + 7] = ((bitfield >> 48) | (array[pos + 7] & (invMask >> 48))) & 0xff
         array[pos + 8] = ((bitfield >> 56) | (array[pos + 8] & (invMask >> 56))) & 0xff
     return array
+
+
 def setBitsFromBytes(bitfield: READABLE_ARRAY, amount: int, array: WRITEABLE_ARRAY, startBit: int):
     pos: int = startBit // BITS_PER_BYTE
     bit: int = startBit % BITS_PER_BYTE
     byte_count = amount // BITS_PER_BYTE
     bits_remaining = amount % BITS_PER_BYTE
+
     if bit == 0:
         for i in range(byte_count):
             array[pos + i] = (bitfield[i]) & 0xff
@@ -153,6 +168,7 @@ def setBitsFromBytes(bitfield: READABLE_ARRAY, amount: int, array: WRITEABLE_ARR
         array[pos + byte_count] = ((bits << bit) & (mask << bit)) | (array[pos + byte_count] & (invmask >> (8 - bit)))
         array[pos + byte_count + 1] = ((bits >> (8 - bit)) & (mask >> (8 - bit))) | (array[pos + byte_count + 1] & (invmask << bit))
     return array
+
 
 def setBitsSegmentArray(bitfield: int, amount: int, array: List[int], startBit: int):
     mask = (1 << (amount-1) << 1) - 1
@@ -175,13 +191,14 @@ def getBits(amount: int, array: READABLE_ARRAY, startBit: int) -> int:
     if amount <= 8:
         bitfield = byteFromBits(array, startBit)
     elif amount <= 16:
-        bitfield = byteFromBits(array, startBit)
+        bitfield = ushortFromBits(array, startBit)
     elif amount <= 32:
-        bitfield = byteFromBits(array, startBit)
+        bitfield = uintFromBits(array, startBit)
     elif amount <= 64:
-        bitfield = byteFromBits(array, startBit)
+        bitfield = ulongFromBits(array, startBit)
     bitfield &= ((1 << amount) - 1)
     return bitfield
+
 
 def getBitsToBytes(array: READABLE_ARRAY, count: int, startBit: int) -> READABLE_ARRAY:
     pos: int = startBit // BITS_PER_BYTE
@@ -359,8 +376,40 @@ def bytesFromBits(array: READABLE_ARRAY, count: int, startBit: int) -> READABLE_
 
 #endregion
 
+
+#region VarLen
+def toVarULong(value: int) -> WRITEABLE_ARRAY:
+    tmp_data = []
+    while True:
+        byte_val = value & 0b_0111_1111
+        value >>= 7
+        if value != 0:
+            byte_val |= 0b_0111_1111
+            tmp_data.append(byte_val)
+        else:
+            tmp_data.append(byte_val | 0b1000_0000)
+            break
+    return tmp_data
+
+
+def fromVarULong(data: READABLE_ARRAY, pos: int):
+    shift = 0
+    val = 0
+    bytes_read = 0
+    while True:
+        byte_val = byteFromBits(data, pos + bytes_read * BITS_PER_BYTE)
+        val |= (byte_val & 0b0111_1111) << shift
+        bytes_read += 1
+        shift += 7
+        if byte_val & 0b1000_0000 == 1:
+            break
+    return val, bytes_read*BITS_PER_BYTE
+
+#endregion
+
 #region Floating point
 #Todo: Switch format strings based on byteorder
+
 
 def fp32_to_bytes(value: float, byteorder: Literal['big', 'little'] = 'little') -> bytearray:
     """

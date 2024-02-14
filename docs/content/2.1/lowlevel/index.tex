@@ -1,0 +1,739 @@
+\renewcommand{\namespace}{\nsLowLevel}
+
+\newenvironment{messagedef}{\rowcolors{1}{blue!10}{white} \begin{longtable}{||p{3cm}|p{3cm}|p{8cm}||}\hline \rowcolor{blue!50!} \textbf{Name} & \textbf{Bit Count} & \textbf{Description} \\ \hline \hline}{\end{longtable}}
+
+\newenvironment{enumdef}{\rowcolors{1}{blue!10}{white} \begin{longtable}{||p{3cm}|p{3cm}|p{8cm}||}\hline \rowcolor{blue!50!} \textbf{Name} & \textbf{Value} & \textbf{Description} \\ \hline \hline}{\end{longtable}}
+
+\newcommand{\msgvalues}[3]{\textbf{#1} & \color{magenta!75!black}\texttt{#2} & #3 \\\hline}
+\newcommand{\msgvaluesOptional}[3]{\textbf{#1} & \color{magenta!75!black}\texttt{#2} & \textbf{OPTIONAL} #3 \\\hline}
+
+\newcommand{\msgheaderReliable}[1]{\rowcolor{yellow!50!}\msgvalues{Message Type}{byte}{ Value set to #1}  \rowcolor{yellow!50!}\msgvalues{Sequence ID}{ushort}{Sequence ID} \rowcolor{yellow!50!}\msgvalues{Message ID}{ushort}{Message ID} \hline}
+\newcommand{\msgheaderUnreliable}[1]{\rowcolor{yellow!50!}\msgvalues{Message Type}{byte}{ Value set to #1} \rowcolor{yellow!50!}\msgvalues{Message ID}{ushort}{Message ID} \hline}
+\newcommand{\msgheaderReliableNoID}[1]{\rowcolor{yellow!50!}\msgvalues{Message Type}{byte}{ Value set to #1}  \rowcolor{yellow!50!}\msgvalues{Sequence ID}{ushort}{Sequence ID}\hline}
+\newcommand{\msgheaderUnreliableNoID}[1]{\rowcolor{yellow!50!}\msgvalues{Message Type}{byte}{ Value set to #1} \hline}
+
+\newcommand{\msgheaderNotify}[1]{\rowcolor{yellow!50!}\msgvalues{Message Type}{4}{ Value set to #1} \rowcolor{yellow!50!}\msgvalues{sequenceID}{16}{Sequence id for this message}\rowcolor{yellow!50!}\msgvalues{receivedSeqIDs}{8}{First 8 bit of the received seq IDs field}\rowcolor{yellow!50!}\msgvalues{lastReceivedSeqID}{16}{Last received sequence ID} \rowcolor{yellow!50!}\msgvalues{Message ID}{ushort}{Message ID} \hline}
+
+\newlength{\tableft}
+\newlength{\tabright}
+
+\setlength{\tableft}{0.15\textwidth}
+\setlength{\tabright}{0.8\textwidth}
+
+
+
+\chapter{Messages}
+
+\section{Header}
+
+\subsection{Unreliable}
+{
+\rowcolors{1}{yellow!25}{yellow!10}
+\begin{tabular}{||p{3cm}|p{3cm}|p{8cm}||}
+	\hline
+	\rowcolor{yellow!50!} \textbf{Name} & \textbf{Type} & \textbf{Comment} \\
+	\hline
+	\hline
+	Header & 4 bit & Header bit \\
+	\hline
+	Message ID & varUInt & Only present in user defined messages\\
+	\hline
+\end{tabular}
+
+Total length (without message ID): \textbf{4 bit} / \textbf{1 Byte}
+
+}
+
+\subsection{Notify}
+{
+	\rowcolors{1}{yellow!25}{yellow!10}
+	\begin{tabular}{||p{4cm}|p{3cm}|p{7cm}||}
+		\hline
+		\rowcolor{yellow!50!} \textbf{Name} & \textbf{Type} & \textbf{Comment} \\
+		\hline
+		\hline
+		Header & 4 bit & Header bit \\
+		\hline
+		sequenceID & 16 bit & Sequence id for this message \\
+		\hline
+		receivedSeqIDs & 8 bit & First 8 bit of the received seq IDs field\\
+		\hline
+		lastReceivedSeqID & 16 bit & Last received sequence ID \\
+		\hline
+		Message ID & varUInt & Only present in user defined messages\\
+		\hline
+	\end{tabular}
+	
+	Total length (without message ID): \textbf{44 bit} / \textbf{6 Byte}
+}
+
+\subsection{Reliable}
+{
+	\rowcolors{1}{yellow!25}{yellow!10}
+	\begin{tabular}{||p{3cm}|p{3cm}|p{8cm}||}
+		\hline
+		\rowcolor{yellow!50!} \textbf{Name} & \textbf{Type} & \textbf{Comment} \\
+		\hline
+		\hline
+		Header & 4 bit & Header bit \\
+		\hline
+		Sequence ID & 16 bit & Optional, only for reliable messages \\
+		\hline
+		Message ID & varUInt & Only present in user defined messages\\
+		\hline
+	\end{tabular}
+	
+	Total length (without message ID): \textbf{20 bit} / \textbf{3 byte}
+}
+
+\subsection{Header Byte}
+
+\begin{enumdef}
+	Unreliable & 0 & An unreliable user message \newline \textbf{Unreliable} \\
+	\hline
+	Ack & 1 & An internal unreliable ack message \newline \textbf{Unreliable} \\
+	\hline
+	Connect & 2 & An internal unreliable connect message\newline \textbf{Unreliable} \\
+	\hline
+	Reject & 3 & An internal unreliable connection rejection message. \newline \textbf{Unreliable} \\
+	\hline
+	Heartbeat & 4 & An internal unreliable heartbeat message. \newline \textbf{Unreliable} \\
+	\hline
+	Disconnect & 5 &  An internal unreliable disconnect message.\newline \textbf{Unreliable} \\
+	\hline
+	Notify & 6 & A notify message. \newline \textbf{Notify-Type} \\
+	\hline
+	Reliable & 7 &  A reliable user message. \newline \textbf{Reliable} \\
+	\hline
+	Welcome & 8 & An internal reliable welcome message. \newline \textbf{Reliable}\\
+	\hline
+	ClientConnected & 9 & An internal reliable client connected message. \newline \textbf{Reliable} \\
+	\hline
+	ClientDisconnected & 10 & An internal reliable client disconnected message. \newline \textbf{Reliable} \\
+	\hline
+\end{enumdef}
+
+	\texttt{Runtime/Core/Transport/IPeer.cs}
+
+Maximum size of message Body defaults to \textbf{1225} Bytes (\texttt{Runtime/Core/Message.cs:30})
+
+\section{Value Encoding}
+\seclbl{encoding}
+
+\subsection{Byte}
+
+Unsigned 8 bit integer
+
+\subsubsection{Single}
+
+\begin{messagedef}
+	\msgvalues{value}{byte}{Single byte, without any further processing}
+\end{messagedef}
+
+\subsubsection{Array}
+
+\begin{messagedef}
+	\msgvaluesOptional{Array Length}{varULong}{See \secnref{encoding::varulong} for details}
+	\msgvalues{value}{byte[]}{Byte array with a maximum length of $2^{16}$. Directly copied into message body.}
+\end{messagedef}
+
+\subsection{Signed Byte}
+
+Signed 8 bit integer
+
+\subsubsection{Single}
+\begin{messagedef}
+	\msgvalues{value}{sbyte}{Single signed byte, cast to two's complement encoded unsigned byte}
+\end{messagedef}
+
+\subsubsection{Array}
+\begin{messagedef}
+	\msgvaluesOptional{Array Length}{varULong}{See \secnref{encoding::varulong} for details}
+	\msgvalues{value}{sbyte[]}{SByte array, no maximum length. Cast to byte and copied into array one by one}
+\end{messagedef}
+
+\subsection{Boolean}
+\subsubsection{Single}
+
+\begin{messagedef}
+	\msgvalues{value}{bool}{Single boolean, encoded as single byte, with value 0x01 for \texttt{true} or value 0x00 for \texttt{false}. Values other than 0x01 will be interpreted as \texttt{false} when reading the message.}
+\end{messagedef}
+
+\subsubsection{Array}
+
+\begin{messagedef}
+	\msgvaluesOptional{Array Length}{varULong}{See \secnref{encoding::varulong} for details \textbf{Beware:} The Array length counts the number of boolean objects in the original Array. This is not equal to the number of bytes used for storing the Array}
+	\msgvalues{value}{bool[]}{bool array, no maximum length. Booleans are packet into bytes (8 booleans per byte). That means the first bool is represented as the lowest bit of the first byte, the second is the second lowest bit and so on}
+\end{messagedef}
+
+\subsection{Short}
+
+16 Bit signed integer
+
+\subsubsection{Single}
+
+\begin{messagedef}
+	\msgvalues{value}{short}{short, taking 2 bytes in the message. \textbf{Endianness is dependent on the host system's .net implementation. Assume Little Endian per default}}
+\end{messagedef}
+
+\subsubsection{Array}
+
+\begin{messagedef}
+	\msgvaluesOptional{Array Length}{varULong}{See \secnref{encoding::varulong} for details}
+	\msgvalues{value}{short[]}{Shorts added sequentially using the method for adding single shorts. \textbf{Endianness is dependent on the host system's .net implementation. Assume Little Endian per default}}
+\end{messagedef}
+
+\subsection{UShort}
+16 Bit unsigned integer
+
+\subsubsection{Single}
+
+\begin{messagedef}
+	\msgvalues{value}{ushort}{ushort, taking 2 bytes in the message. \textbf{Endianness is dependent on the host system's .net implementation. Assume Little Endian per default}}
+\end{messagedef}
+
+\subsubsection{Array}
+
+\begin{messagedef}
+	\msgvaluesOptional{Array Length}{varULong}{See \secnref{encoding::varulong} for details}
+	\msgvalues{value}{ushort[]}{UShorts added sequentially using the method for adding single ushorts. \textbf{Endianness is dependent on the host system's .net implementation. Assume Little Endian per default}}
+\end{messagedef}
+
+\subsection{Int}
+32 Bit signed integer
+\subsubsection{Single}
+
+\begin{messagedef}
+	\msgvalues{value}{int}{int, taking 4 bytes in the message. \textbf{Endianness is dependent on the host system's .net implementation. Assume Little Endian per default}}
+\end{messagedef}
+
+\subsubsection{Array}
+
+\begin{messagedef}
+	\msgvaluesOptional{Array Length}{varULong}{See \secnref{encoding::varulong} for details}
+	\msgvalues{value}{int[]}{Integers added sequentially using the method for adding single ints. \textbf{Endianness is dependent on the host system's .net implementation. Assume Little Endian per default}}
+\end{messagedef}
+
+\subsection{UInt}
+32 Bit unsigned integer
+
+\subsubsection{Single}
+
+\begin{messagedef}
+	\msgvalues{value}{uint}{uint, taking 4 bytes in the message. \textbf{Endianness is dependent on the host system's .net implementation. Assume Little Endian per default}}
+\end{messagedef}
+
+\subsubsection{Array}
+
+\begin{messagedef}
+	\msgvaluesOptional{Array Length}{varULong}{See \secnref{encoding::varulong} for details}
+	\msgvalues{value}{uint[]}{Integers added sequentially using the method for adding single uints. \textbf{Endianness is dependent on the host system's .net implementation. Assume Little Endian per default}}
+\end{messagedef}
+
+\subsection{Long}
+64 Bit signed integer
+
+\subsubsection{Single}
+
+\begin{messagedef}
+	\msgvalues{value}{long}{long, taking 8 bytes in the message. \textbf{Endianness is dependent on the host system's .net implementation. Assume Little Endian per default}}
+\end{messagedef}
+
+\subsubsection{Array}
+
+\begin{messagedef}
+	\msgvaluesOptional{Array Length}{varULong}{See \secnref{encoding::varulong} for details}
+	\msgvalues{value}{long[]}{Integers added sequentially using the method for adding single longs. \textbf{Endianness is dependent on the host system's .net implementation. Assume Little Endian per default}}
+\end{messagedef}
+
+\subsection{ULong}
+64 Bit unsigned integer
+
+\subsubsection{Single}
+
+\begin{messagedef}
+	\msgvalues{value}{ulong}{ulong, taking 8 bytes in the message. \textbf{Endianness is dependent on the host system's .net implementation. Assume Little Endian per default}}
+\end{messagedef}
+
+\subsubsection{Array}
+
+\begin{messagedef}
+	\msgvaluesOptional{Array Length}{varULong}{See \secnref{encoding::varulong} for details}
+	\msgvalues{value}{ulong[]}{Integers added sequentially using the method for adding single ulongs. \textbf{Endianness is dependent on the host system's .net implementation. Assume Little Endian per default}}
+\end{messagedef}
+
+\subsection{Float}
+32 Bit signed IEEE floating point
+
+\subsubsection{Single}
+
+\begin{messagedef}
+	\msgvalues{value}{float}{float, taking 4 bytes in the message, Encoded in IEEE format, seperated into its single bytes. \textbf{Endianness is dependent on the host system's .net implementation. Assume Little Endian per default}}
+\end{messagedef}
+
+\subsubsection{Array}
+
+\begin{messagedef}
+	\msgvaluesOptional{Array Length}{varULong}{See \secnref{encoding::varulong} for details}
+	\msgvalues{value}{float[]}{Floats added sequentially using the method for adding single IEEE floats. \textbf{Endianness is dependent on the host system's .net implementation. Assume Little Endian per default}}
+\end{messagedef}
+
+\subsection{Double}
+64 Bit signed IEEE floating point
+
+\subsubsection{Single}
+
+\begin{messagedef}
+	\msgvalues{value}{double}{double, taking 8 bytes in the message, Encoded in IEEE format, seperated into its single bytes. \textbf{Endianness is dependent on the host system's .net implementation. Assume Little Endian per default}}
+\end{messagedef}
+
+\subsubsection{Array}
+
+\begin{messagedef}
+	\msgvaluesOptional{Array Length}{varULong}{See \secnref{encoding::varulong} for details}
+	\msgvalues{value}{double[]}{Floats added sequentially using the method for adding single IEEE doubles. \textbf{Endianness is dependent on the host system's .net implementation. Assume Little Endian per default}}
+\end{messagedef}
+
+\subsection{String}
+
+UTF-8 Encoded String
+
+\subsubsection{Single}
+
+\begin{messagedef}
+	\msgvaluesOptional{Array Length}{varULong}{See \secnref{encoding::varulong} for details}
+	\msgvalues{value}{byte[]}{UTF-8 encoded string}
+\end{messagedef}
+
+\subsubsection{Array}
+
+\begin{messagedef}
+	\msgvaluesOptional{Array Length}{varULong}{See \secnref{encoding::varulong} for details}
+	\msgvalues{value}{string[]}{Strings added sequentially using the method for adding single Strings.}
+\end{messagedef}
+
+\subsection{VarLong}
+
+\begin{messagedef}
+	\msgvalues{value}{variable}{UTF-Like encoding: left most bit used in order to indicate continuation (1: not last byte, 0: is last byte). Next seven bits are then the actual value of that byte. Maximum 64 bit integers supported in Riptide. Encoded such that the \textbf{signed bit is the right most bit}, in order to minimize bits for negative numbers}
+\end{messagedef}
+
+\subsection{VarULong}
+\seclbl{encoding::varulong}
+
+\begin{messagedef}
+	\msgvalues{value}{variable 8 - 72 bit}{UTF-Like encoding: left most bit used in order to indicate continuation (1: not last byte, 0: is last byte). Next seven bits are then the actual value of that byte. Maximum 64 bit integers supported in Riptide}
+\end{messagedef}
+
+\subsection{Vector2}
+
+\begin{messagedef}
+	\msgvalues{value.x}{float}{x component of Vector2}
+	\msgvalues{value.y}{float}{y component of Vector2}
+\end{messagedef}
+
+\subsection{Vector3}
+
+\begin{messagedef}
+	\msgvalues{value.x}{float}{x component of Vector3}
+	\msgvalues{value.y}{float}{y component of Vector3}
+	\msgvalues{value.z}{float}{z component of Vector3}
+\end{messagedef}
+
+\subsection{Quaternion}
+
+\begin{messagedef}
+	\msgvalues{value.x}{float}{x component of Quaternion}
+	\msgvalues{value.y}{float}{y component of Quaternion}
+	\msgvalues{value.z}{float}{z component of Quaternion}
+	\msgvalues{value.w}{float}{w component of Quaternion}
+\end{messagedef}
+
+\subsection{IMessageSerializable}
+Custom Structures
+
+\subsubsection{Single}
+
+\begin{messagedef}
+	\msgvalues{value}{IMessage\-Serializable}{Serialized using Serialize() method of this Object, deserialized using Deserialize() method of the type. Expected type has to be declared by user, Type must have no-parameter constructor}
+\end{messagedef}
+
+
+\subsubsection{Array}
+
+\begin{messagedef}
+	\msgvaluesOptional{Array Length}{varULong}{See \secnref{encoding::varulong} for details}
+	\msgvalues{value}{IMessage\-Serializable[]}{IMessageSerializables added sequentially using the method for adding single IMessageSerializables.}
+\end{messagedef}
+
+\section{Message Types}
+
+\subsection{Unreliable}
+\seclbl{message::unreliable}
+An unreliable user message
+
+\begin{messagedef}
+	\msgheaderUnreliable{0}
+	\msgvalues{payload}{byte[]}{Payload defined by user, with data types serialized as described in \secnref{encoding}}
+\end{messagedef}
+
+\subsection{Ack}
+\seclbl{message::ack}
+An internal unreliable ack message
+
+\begin{messagedef}
+	\msgheaderUnreliableNoID{1}
+	\msgvalues{Last\-Received\-SeqId}{ushort}{Last remote sequence ID}
+	\msgvalues{AcksBitfield}{ushort}{Acks (binary flags)}
+\end{messagedef}
+
+%\subsection{AckExtra}
+%\seclbl{message::ackextra}
+%An internal unreliable ack message, used when acknowledging a sequence ID other than the last received one
+
+%\begin{messagedef}
+%	\msgheaderUnreliableNoID{2}
+%	\msgvalues{Last\-Received\-SeqId}{ushort}{Last remote sequence ID}
+%	\msgvalues{AcksBitfield}{ushort}{Acks (binary flags)}
+%	\msgvalues{forSeqId}{ushort}{Sequence ID this ack is for}
+%\end{messagedef}
+
+
+\subsection{Connect}
+\seclbl{message::connect}
+An internal unreliable connect message
+
+\begin{messagedef}
+	\msgheaderUnreliableNoID{2}
+	\msgvaluesOptional{connectBytes}{byte[]}{Custom data to include when connecting. \textbf{Length of the Array is not included in the message}}
+\end{messagedef}
+
+\subsection{Reject}
+\seclbl{message::reject}
+An internal unreliable connection rejection message
+
+\begin{messagedef}
+	\msgheaderUnreliableNoID{3}
+	\msgvalues{RejectReason}{byte}{Reason for the rejection of the connection. See also \secnref{enum::reject}}
+	\msgvaluesOptional{rejectMessage}{byte[]}{custom byte[] containing additional data. See \secnref{encoding} for value. Length of the array is not included. If this field is present, \textbf{RejectReason must be set to Custom}}
+\end{messagedef}
+
+\subsection{Heartbeat}
+\seclbl{message::heartbeat}
+An internal unreliable heartbeat message
+
+\begin{messagedef}
+	\msgheaderUnreliableNoID{4}
+	\msgvalues{Ping ID}{byte}{Ping ID of the message}
+	\msgvalues{RTT}{short}{Round trip time, -1 if not calculated jet}
+\end{messagedef}
+
+
+\subsection{Disconnect}
+\seclbl{message::disconnect}
+An internal unreliable disconnect message
+
+\begin{messagedef}
+	\msgheaderUnreliableNoID{5}
+	\msgvalues{Reason}{byte}{Disconnect reason, see also \secnref{enum::disconnect}}
+	\msgvaluesOptional{Message}{byte[]}{custom byte[] containing additional data. See \secnref{encoding} for value. Length of the array is not included. If this field is present, \textbf{Disconnect Reason must be set to Kicked}}
+\end{messagedef}
+
+\subsection{Notify}
+\seclbl{message::Notify}
+
+\begin{messagedef}
+	\msgheaderNotify{6}
+\end{messagedef}
+
+\subsection{Reliable}
+\seclbl{message::reliable}
+A reliable user message
+
+\begin{messagedef}
+	\msgheaderReliable{7}
+	\msgvalues{payload}{byte[]}{Payload defined by user, with data types serialized as described in \secnref{encoding}}
+\end{messagedef}
+
+\subsection{Welcome}
+\seclbl{message::welcome}
+An internal reliable welcome message
+
+\begin{messagedef}
+	\msgheaderReliableNoID{8}
+	\msgvalues{ID}{ushort}{Connection ID}
+\end{messagedef}
+
+\subsection{ClientConnected}
+\seclbl{message::clientconnected}
+An internal reliable client connected message. Send to all clients when a new client connects.
+
+\begin{messagedef}
+	\msgheaderReliableNoID{9}
+	\msgvalues{ID}{ushort}{Client ID}
+\end{messagedef}
+
+\subsection{ClientDisconnected}
+\seclbl{message::clientdisconnected}
+An internal reliable client disconnected message. Send to all still connected clients when a client disconnects.
+
+\begin{messagedef}
+	\msgheaderReliableNoID{10}
+	\msgvalues{ID}{ushort}{Client ID}
+\end{messagedef}
+
+\section{Enums}
+
+\subsection{Reject Reasons}
+\seclbl{enum::reject}
+See \texttt{Core/Peer.cs}
+
+\begin{enumdef}
+	0 & NoConnection & No response was received from the server (because the client has no internet connection, the server is offline, no server is listening on the target endpoint, etc.). \\ \hline
+	1 & AlreadyConnected & The client is already connected. \\ \hline
+	2 & Pending & A connection attempt is already pending. \\ \hline	
+	3 & ServerFull & The server is full. \\ \hline	
+	4 & Rejected & The connection attempt was rejected. \\ \hline	
+	5 & Custom & The connection attempt was rejected and custom data may have been included with the rejection message. \\ \hline	
+\end{enumdef}
+
+\subsection{Disconnect Reasons}
+\seclbl{enum::disconnect}
+See \texttt{Core/Peer.cs}
+
+\begin{enumdef}
+	0 & NeverConnected & No connection was ever established \\ \hline
+	1 & ConnectionRejected & The connection attempt was rejected by the server \\ \hline
+	2 & TransportError & The active transport detected a problem with the connection \\ \hline
+	3 & TimedOut & The connection timed out or the real reason for the disconnect was lost / is unclear \\ \hline
+	4 & Kicked & The client was forcibly disconnected by the server \\ \hline
+	5 & ServerStopped & The server shut down \\ \hline
+	6 & Disconnected & The disconnection was initiated by the client \\ \hline
+	7 & PoorConnection & The connection's loss and/or resend rates exceeded the maximum acceptable thresholds, or a reliably sent message could not be delivered. \\ \hline
+\end{enumdef}
+
+\chapter{Protocol}
+
+\section{General Information}
+
+\begin{itemize}
+	\item \textbf{HeartbeatInterval}: 1000 ms
+	\item \textbf{Timeout}: 5000 ms
+	\item \textbf{Resend Interval}: 1.2 * smoothRTT
+	\item \textbf{Resend Attempts}: 15
+\end{itemize}
+
+\section{Connection}
+
+\begin{enumerate}
+	\item Client initiates connection from Transport and Client starts heartbeat messages
+	\item The server either
+	\begin{itemize}
+		\item accepts the connection (if no custom connection handler is specified)
+		\item adds the connection to the list of pending connections, if a custom connection handler is specified \& calls the handler.
+	\end{itemize}
+	\item Once the connection is accepted, a welcome message is sent from the server to the client
+\end{enumerate}
+
+\section{Heartbeat}
+
+The heartbeat is used in order to check if connections are timed out, and to measure the round trip time for packets
+
+\subsection{Client}
+
+The heartbeat is started once the connection is initiated (by calling the connect method).
+
+The behavior of the heartbeat depends on the current state of the client.
+
+\subsubsection{isConnecting}
+
+If the maximum connect attempts are not reached, sends a connect message to the remote peer. If connectBytes is not Null, the connect bytes are appended. The connection attempt counter gets incremented. Otherwise, a local disconnect is called with reason ''NeverConnected''
+
+Finally, the next heartbeat event is scheduled.
+
+\subsubsection{isPending}
+
+If the current connection attempt timed out, a local disconnect is called with reason ''TimedOut''
+
+Otherwise the next heartbeat event is scheduled.
+
+\subsubsection{isConnected}
+
+If the current connection timed out, a local disconnect is called with reason ''TimedOut''.
+Otherwise a heartbeat is sent and the next heartbeat event is scheduled.
+
+\subsubsection{Other states}
+
+The next heartbeat event is scheduled.
+
+\subsection{Server}
+
+The heartbeat is started once the server starts.
+
+\section{Reliable Messages}
+
+Reliable messages are messages that need to be acknoledged by the peer. If within 1.2 times the current smoothed round trip time (as determined by the heartbeat) no ack is received, the message is resent. If more than 15 attempts are tried, the message gets discarded, and a warning gets logged, if enabled.
+
+\subsection{Duplicate Detection}
+See also \texttt{Core/Connection.cs:141}
+
+First the gap between the received sequence ID and the previously received sequence ID is computed. The next steps depend on the sign of the gap:
+
+\subsubsection{Positive Gap (larger sequence ID received)}
+
+Once a reliable message with an newer sequence ID than the previous (= positive sequence Gap) is received, an 64 bit long bit field is shifted left by the gap since the last received sequence ID.
+
+\begin{tabular}{p{\tableft}p{\tabright}}
+	\textbf{if gap $\le$ 16:} & the acks bitfield gets shiftet by sequence bits. The new acks bitfield now consists of the two most minor bytes of the shifted value, the ''Overflow'' gets then or-ed into the duplicate filter bitfield \newline The message is handled if the bit in the acks bit field at position sequenceGap is zero. When handling, this bit is flipped to one. \newline The last received sequence ID is set to this message's sequence ID \\
+	\textbf{if gap $\le$ 80:} & Shifts the acks bit field by sequenceGap-16. The shifted bits are or-ed into the duplicate filter bitfield, and the acks bit field is zeroed \newline The message is handled if the bit in the duplicate bit field at position sequenceGap-16 is zero. When handling, this bit is flipped to one. \newline The last received sequence ID is set to this message's sequence ID \\
+\end{tabular}
+
+\subsubsection{Negative Gap (smaller sequence ID received)}
+
+\begin{tabular}{p{\tableft}p{\tabright}}
+	\textbf{if gap $\le$ 16:} & The message is handled if the bit in the acks bit field at position abs(sequenceGap) is zero. When handling, this bit is flipped to one.\\
+	\textbf{if gap $\le$ 80:} & The message is handled if the bit in the duplicate bit field at position abs(sequenceGap) is zero. When handling, this bit is flipped to one. \\
+\end{tabular}
+
+\subsubsection{Gap of 0}
+
+Is not handled. \\
+
+Finally, an Ack message is sent for the sequence ID
+
+\subsection{Acknoledge Messages}
+
+See also \texttt{Core/Connection.cs:233}
+
+First the gap between the received sequence ID and the previously received sequence ID is computed. The next steps depend on the sign of the gap:
+
+\subsubsection{Positive Gap (larger sequence ID received)}
+
+For each id in the gap, excluding the current message, first the acked messages bit field is shifted left by one. Then, the left most message is checked for ack status. If the message is already acked, the pending message gets cleared from the pending messages dict, if still present. If no ack for the message has been received yet, the message is resent if present in the pending messages dict.
+
+Once all previous messages from the acked messages bit field are checked, the bit field gets shifted once more left to make space for the ack bit of the current sequenceID. The ackedMessagesBitfield is then or-ed with the remote acks bitfield from the ack message and the ack bit for the current sequence ID.
+
+The lastAckedSeqID is then set to the remote last received SeqID
+
+\subsubsection{Negative Gap (smaller sequence ID received)}
+
+According to comments in the source, this branch most likely never executes.
+
+The bit corresponding to the sequence ID is set, and the local acked bitfield is or-ed with the remote acksBitField, ensuring that the bit corresponding to this ack is set to 1. 
+
+If there exists still a pending message for this ack, the pending message is cleared.
+
+\subsubsection{Gap of 0}
+
+The remote and local bit fields are combined (using binary or), and the ack status of the oldest sequence ID is checked.
+
+\section{Transport Details}
+
+\subsection{UDP}
+If not otherwise specified, UDP is used as transport.
+
+\begin{itemize}
+	\item Default Socket buffer size: 1 MB (1024*1024 Byte)
+	\item Minimal Socket buffer size: 256Kb (256*1024 Byte)
+	\item Receive Polling Frequency: 2 Hz (Every 0.5 Seconds)
+\end{itemize}
+
+\subsection{TCP}
+
+\subsubsection{Package Format}
+
+\begin{messagedef}
+	\msgvalues{packetLength}{ushort}{Length of the package}
+	\msgvalues{packet}{Message}{Content of the package (= the Message)}
+\end{messagedef}
+
+Please note that the byteOrder of packetLength is again most likely system dependent. Expect Little Endian as default. (if the Symbol ''BIG\_ENDIAN'' is not defined)
+
+\chapter{Events}
+
+\section{Transport}
+
+\subsection{IPeer}
+\subsubsection{DataReceived}
+\begin{messagedef}
+	\msgvalues{dataBuffer}{byte[]}{An array containing the received data}
+	\msgvalues{amount}{int}{The number of bytes that were received}
+	\msgvalues{fromConnection}{Connection}{The connection which the data was received from}
+\end{messagedef}
+
+\subsubsection{Disconnected}
+\begin{messagedef}
+	\msgvalues{connection}{Connection}{The connection which was closed}
+	\msgvalues{reason}{DisconnectReason}{The reason for the disconnection}
+\end{messagedef}
+
+\subsection{IClient}
+Inherits events from IPeer
+
+\subsubsection{Connected}
+No Arguments
+
+
+\subsubsection{ConnectionFailed}
+No Arguments
+
+\subsection{IServer}
+Inherits events from IPeer
+
+\subsubsection{Connected}
+\begin{messagedef}
+	\msgvalues{connection}{Connection}{Connection that just got connected}
+\end{messagedef}
+
+\section{Interface}
+
+\subsection{Client}
+
+\subsubsection{Connected}
+No Arguments
+
+\subsubsection{ConnectionFailed}
+\begin{messagedef}
+	\msgvalues{message}{Message}{Additional data related to the failed connection attempt (if any)}
+\end{messagedef}
+\subsubsection{MessageReceived}
+
+\begin{messagedef}
+	\msgvalues{fromConnection}{Connection}{The connection from which the message was received}
+	\msgvalues{messageID}{ushort}{ID of the Message}
+	\msgvalues{message}{Message}{the received Message}
+\end{messagedef}
+
+\subsubsection{Disconnected}
+\begin{messagedef}
+	\msgvalues{reason}{DisconnectReason}{The reason for the disconnection}
+	\msgvalues{message}{Message}{additional data related to the disconnection (may be null)}
+\end{messagedef}
+\subsubsection{ClientConnected}
+\begin{messagedef}
+	\msgvalues{id}{ushort}{The numeric ID of the client that connected}
+\end{messagedef}
+\subsubsection{ClientDisconnected}
+\begin{messagedef}
+	\msgvalues{id}{ushort}{The numeric ID of the client that disconnected}
+\end{messagedef}
+
+\subsection{Server}
+
+\subsubsection{ClientConnected}
+\begin{messagedef}
+	\msgvalues{client}{Connection}{The newly connected client}
+\end{messagedef}
+
+\subsubsection{MessageReceived}
+\begin{messagedef}
+	\msgvalues{fromConnection}{Connection}{The connection from which the message was received}
+	\msgvalues{messageID}{ushort}{ID of the Message}
+	\msgvalues{message}{Message}{the received Message}
+\end{messagedef}
+
+\subsubsection{ClientDisconnected}
+\begin{messagedef}
+	\msgvalues{client}{Connection}{The client that disconnected}
+	\msgvalues{reason}{DisconnectReason}{The reason for disconnection}
+\end{messagedef}

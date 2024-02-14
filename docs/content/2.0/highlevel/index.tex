@@ -1,0 +1,91 @@
+\renewcommand{\namespace}{\nsHighLevel}
+
+\chapter{Usage}
+
+\section{C\#}
+
+Based on \url{https://riptide.tomweiland.net/manual/overview/getting-started.html}
+
+\subsection{Initialize Logging}
+
+\begin{lstlisting}[style=CSharp]
+RiptideLogger.Initialize(Debug.Log, Debug.Log, Debug.LogWarning, Debug.LogError, false);
+\end{lstlisting}
+
+\subsection{Create Server}
+
+\begin{lstlisting}[style=CSharp]
+Server server = new Server();
+server.Start(7777, 10);
+\end{lstlisting}
+
+In order to process the messages:
+
+\begin{lstlisting}[style=CSharp]
+private void FixedUpdate()
+{
+	server.Update();
+}
+\end{lstlisting}
+
+\subsection{Create Client}
+
+\begin{lstlisting}[style=CSharp]
+Client client = new Client();
+client.Connect("127.0.0.1:7777");
+\end{lstlisting}
+
+In order to process the messages:
+
+\begin{lstlisting}[style=CSharp]
+private void FixedUpdate()
+{
+	client.Update();
+}
+\end{lstlisting}
+
+\subsection{Messages}
+
+\begin{lstlisting}[style=CSharp]
+Message message = Message.Create(MessageSendMode.Unreliable, 1);
+\end{lstlisting}
+
+\section{Python}
+
+\subsection{Create Server}
+
+\begin{lstlisting}[style=Python]
+    tcpTransport = TCPServer()
+    server: Server = Server(tcpTransport)
+    server.start(PORT, 10)
+\end{lstlisting}
+
+In order to process the messages:
+
+\begin{lstlisting}[style=Python]
+    serverUpdater: FixedUpdateThread = FixedUpdateThread(server.update)
+    serverUpdater.start()
+\end{lstlisting}
+
+\subsection{Create Client}
+
+\begin{lstlisting}[style=Python]
+    tcpTransport = TCPClient()
+    client: Client = Client(tcpTransport)
+    client.connect(("127.0.0.1", PORT))
+\end{lstlisting}
+
+In order to process the messages:
+
+\begin{lstlisting}[style=Python]
+    clientUpdater: FixedUpdateThread = FixedUpdateThread(client.update)
+    clientUpdater.start()
+\end{lstlisting}
+
+\subsection{Messages}
+
+\begin{lstlisting}[style=Python]
+    msg = message.create(MessageSendMode.Unreliable, MESSAGE_ID_HANDLED)
+    msg.putString("Hello World !")
+    client.send(msg)
+\end{lstlisting}

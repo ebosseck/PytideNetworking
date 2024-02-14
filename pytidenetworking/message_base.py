@@ -1,7 +1,10 @@
+# Updated to 2.1.0
+
 from enum import IntEnum
 from math import ceil
-from typing import Union, List
-from .utils.converter import BITS_PER_BYTE, BITS_PER_SEGMENT
+from typing import Union, List, Tuple
+from .utils.converter import BITS_PER_BYTE, BITS_PER_SEGMENT, ushortToBits, setBits64, toVarULong, ensureSpaceAvailable, \
+    setBitsFromBytes, ushortFromBits, getBits, fromVarULong, bytesFromBits
 
 try:
     from typing import Literal
@@ -89,6 +92,10 @@ class MessageBase:
         """
         Message ID of the message if applicable
         """
+        self.notifyBits: int = -1
+        """
+        Bit sequence of the notify bits
+        """
 
         self.data: bytearray = bytearray()
         """
@@ -125,24 +132,63 @@ class MessageBase:
     def bytesInUse(self):
         return ceil(self.writeBit / BITS_PER_BYTE)
 
+    def setNotifyBits(self, notify_bits: int):
+        self.notifyBits = notify_bits
+
     def createBytestream(self):
         """
         Assembles the bytes representing this message
         :return: the bytes representing this message
         """
         bytestream: bytearray = bytearray()
-        bytestream.append(self.header & 0xff)
-        #TODO: sequence ID to VarUint
-        if self.hasSequenceID:
-            bytestream += self.seqID.to_bytes(length=2, byteorder=self.byte_order, signed=False)
+
+        if self.header < MessageHeader.Notify:
+            # Unreliable
+            bytestream, bitpos = self.__makeHeaderUnreliable(bytestream)
+        elif self.header < MessageHeader.Reliable:
+            # Notify
+            bytestream, bitpos = self.__makeHeaderNotify(bytestream)
+        else:
+            #Reliable
+            bytestream, bitpos = self.__makeHeaderReliable(bytestream)
 
         if self.hasMessageID:
-            bytestream += self.msgID.to_bytes(length=2, byteorder=self.byte_order, signed=False)
+            msgIDBytes = toVarULong(self.msgID)
+            bytestream = ensureSpaceAvailable(bytestream, bitpos, len(msgIDBytes) * BITS_PER_BYTE)
+            bytestream = setBitsFromBytes(msgIDBytes, len(msgIDBytes) * BITS_PER_BYTE, bytestream, bitpos)
+            bitpos += len(msgIDBytes) * BITS_PER_BYTE
 
-        bytestream += self.data
+        bytestream = setBitsFromBytes(self.data, self.writeBit, bytestream, bitpos)
 
         return bytestream, len(bytestream)
 
+    def __makeHeaderUnreliable(self, bytestream: Union[bytearray, List[int]]) -> Tuple[Union[bytearray, List[int]], int]:
+        bytes_missing = 1 - len(bytestream)
+        if bytes_missing > 0:
+            bytestream.extend([0] * bytes_missing)
+        bytestream[0] = self.header
+
+        return bytestream, 4
+
+    def __makeHeaderReliable(self, bytestream: Union[bytearray, List[int]]) -> Tuple[Union[bytearray, List[int]], int]:
+        bytes_missing = 3 - len(bytestream)
+        if bytes_missing > 0:
+            bytestream.extend([0] * bytes_missing)
+
+        bytestream[0] = self.header
+        bytestream = ushortToBits(self.seqID, bytestream, 4)
+
+        return bytestream, 20
+
+    def __makeHeaderNotify(self, bytestream: Union[bytearray, List[int]]) -> Tuple[Union[bytearray, List[int]], int]:
+        bytes_missing = 6 - len(bytestream)
+        if bytes_missing > 0:
+            bytestream.extend([0] * bytes_missing)
+
+        bytestream[0] = self.header
+        bytestream = setBits64(self.notifyBits, 40, bytestream, 4)
+
+        return bytestream, 44
     def createConnectBytes(self):
         """
         Assemble the bytes representing this message sans Header
@@ -150,10 +196,14 @@ class MessageBase:
         """
         bytestream: bytearray = bytearray()
 
+        bitpos = 0
         if self.hasMessageID:
-            bytestream += self.msgID.to_bytes(length=2, byteorder=self.byte_order, signed=False)
+            msgIDBytes = toVarULong(self.msgID)
+            bytestream = ensureSpaceAvailable(bytestream, 0, len(msgIDBytes) * BITS_PER_BYTE)
+            bytestream = setBitsFromBytes(msgIDBytes, len(msgIDBytes) * BITS_PER_BYTE, bytestream, 0)
+            bitpos = len(msgIDBytes) * BITS_PER_BYTE
 
-        bytestream += self.data
+        bytestream = setBitsFromBytes(self.data, self.writeBit, bytestream, bitpos)
 
         return bytestream, len(bytestream)
 
@@ -168,22 +218,34 @@ class MessageBase:
         if amount > 0:
             bytestream = bytestream[: amount]
 
-        self.header = bytestream[0]
-        readPos = 1
+        self.header = bytestream[0] & HEADER_BITMASK
 
-        if self.header == MessageHeader.Notify:
-            #TODO Handle Notify
-            pass
-
-        if self.hasSequenceID:
-            self.seqID = int.from_bytes(bytestream[readPos: readPos+2], self.byte_order, signed=False)
-            readPos += 2
+        if self.header < MessageHeader.Notify:
+            # Unreliable
+            bitpos = self.__readHeaderUnreliable(bytestream)
+        elif self.header < MessageHeader.Reliable:
+            # Notify
+            bitpos = self.__readHeaderNotify(bytestream)
+        else:
+            #Reliable
+            bitpos = self.__readHeaderReliable(bytestream)
 
         if self.hasMessageID: # only user generated messages
-            self.msgID = int.from_bytes(bytestream[readPos: readPos + 2], self.byte_order, signed=False)
-            readPos += 2
+            self.msgID, bitpos = fromVarULong(bytestream, bitpos)
 
-        self.data = bytestream[readPos:]
+        self.data = bytesFromBits(bytestream, len(bytestream) * BITS_PER_BYTE - bitpos, bitpos)
+
+    def __readHeaderUnreliable(self, bytestream: Union[bytearray, List[int]]) -> int:
+        # No further content in header
+        return 4
+
+    def __readHeaderReliable(self, bytestream: Union[bytearray, List[int]]) -> int:
+        self.seqID = ushortFromBits(bytestream, 4)
+        return 20
+
+    def __readHeaderNotify(self, bytestream: Union[bytearray, List[int]]) -> int:
+        self.notifyBits = getBits(40, bytestream, 4)
+        return 44
 
     @property
     def hasSequenceID(self):
@@ -215,6 +277,6 @@ class MessageBase:
         # Not Implemented
         pass
 
-    def setBits(self, notify_bits, param, HEADER_BITS):
-        pass # TODO: Implement
+    def putBits(self, notify_bits, param, HEADER_BITS):
+        pass
 

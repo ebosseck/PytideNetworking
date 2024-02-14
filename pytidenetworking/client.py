@@ -252,7 +252,7 @@ class Client(Peer):
         if message is not None:
             if message.readBit != 0:
                 logger.error("Use the parameterless 'Message.Create()' overload when setting connection attempt data!")
-            self.__connectMessage.addMessage(message)
+            self.__connectMessage.appendMessage(message)
             message.release()
 
         self.startTime()

@@ -1,5 +1,7 @@
+# Updated to 2.1.0
+
 try:
-    from typing import Literal
+    from typing import Literal, Optional
 except ImportError:
     from typing_extensions import Literal
 
@@ -430,7 +432,7 @@ class Message(MessageBase):
         """
         return int.from_bytes(self.getBytes(1, pos), self.byte_order, signed=True)
 
-    def putInt8Array(self, value: List[int], includeLength:bool = True, pos: int = -1):
+    def putInt8Array(self, value: Union[bytes, bytearray, List[int]], includeLength:bool = True, pos: int = -1):
         """
         Puts the given value into the messages payload
 
@@ -463,9 +465,9 @@ class Message(MessageBase):
         """
         length, bits_read = self.getVarULong(pos) if length < 0 else (length, 0)
 
-        self.checkReadBitsAvailable(self.readPos, length)
+        self.checkReadBitsAvailable(self.readBit + bits_read, length * BITS_PER_BYTE)
 
-        self.readPos = self.computeReadPointerBits(pos)
+        self.readBit = self.computeReadPointerBits(pos) + bits_read
         result = []
         for _ in range(length):
             result.append(self.getInt8())
@@ -529,9 +531,9 @@ class Message(MessageBase):
         """
         length, bits_read = self.getVarULong(pos) if length < 0 else (length, 0)
 
-        self.checkReadBitsAvailable(self.readPos, length)
+        self.checkReadBitsAvailable(self.readBit + bits_read, length * BITS_PER_BYTE)
 
-        self.readPos = self.computeReadPointerBits(pos)
+        self.readBit = self.computeReadPointerBits(pos) + bits_read
         result = []
         for _ in range(length):
             result.append(self.getUInt8())
@@ -556,7 +558,7 @@ class Message(MessageBase):
             self.appendBits(value.to_bytes(length=2, byteorder=self.byte_order, signed=True))
         else:
             self.replaceBits(value.to_bytes(length=2, byteorder=self.byte_order, signed=True), pos)
-        return 2
+        return 2 * BITS_PER_BYTE
 
     def getInt16(self, pos: int = -1) -> int:
         """
@@ -576,16 +578,16 @@ class Message(MessageBase):
         :param pos: overrides the data at the given position if >= 0, otherwise the data is appended
         :return: the number of bytes written to the messages payload
         """
-        bytesWritten = 0
+        bitsWritten = 0
         if includeLength:
-            bytesWritten = self.putVarULong(len(value), pos)
+            bitsWritten = self.putVarULong(len(value), pos)
 
         self.checkBitsAvailable(len(value) * 16)
 
         for val in value:
-            bytesWritten += self.putInt16(val, -1 if pos < 0 else pos+bytesWritten)
+            bitsWritten += self.putInt16(val, -1 if pos < 0 else pos+bitsWritten)
 
-        return bytesWritten
+        return bitsWritten
 
     def getInt16Array(self, length: int = -1, pos: int = -1) -> List[int]:
         """
@@ -597,9 +599,9 @@ class Message(MessageBase):
         """
         length, bits_read = self.getVarULong(pos) if length < 0 else (length, 0)
 
-        self.checkReadBitsAvailable(self.readPos, 2*length)
+        self.checkReadBitsAvailable(self.readBit + bits_read, length * BITS_PER_BYTE * 16)
 
-        self.readPos = self.computeReadPointerBits(pos)
+        self.readBit = self.computeReadPointerBits(pos) + bits_read
         result = []
         for _ in range(length):
             result.append(self.getInt16())
@@ -620,7 +622,7 @@ class Message(MessageBase):
             self.appendBits(value.to_bytes(length=2, byteorder=self.byte_order, signed=False))
         else:
             self.replaceBits(value.to_bytes(length=2, byteorder=self.byte_order, signed=False), pos)
-        return 2
+        return 2 * BITS_PER_BYTE
 
     def getUInt16(self, pos: int = -1) -> int:
         """
@@ -640,16 +642,16 @@ class Message(MessageBase):
         :param pos: overrides the data at the given position if >= 0, otherwise the data is appended
         :return: the number of bytes written to the messages payload
         """
-        bytesWritten = 0
+        bitsWritten = 0
         if includeLength:
-            bytesWritten = self.putVarULong(len(value), pos)
+            bitsWritten = self.putVarULong(len(value), pos)
 
         self.checkBitsAvailable(len(value) * 16)
 
         for val in value:
-            bytesWritten += self.putUInt16(val, -1 if pos < 0 else pos+bytesWritten)
+            bitsWritten += self.putUInt16(val, -1 if pos < 0 else pos+bitsWritten)
 
-        return bytesWritten
+        return bitsWritten
 
     def getUInt16Array(self, length: int = -1, pos: int = -1) -> List[int]:
         """
@@ -661,9 +663,9 @@ class Message(MessageBase):
         """
         length, bits_read = self.getVarULong(pos) if length < 0 else (length, 0)
 
-        self.checkReadBitsAvailable(self.readPos, 2*length)
+        self.checkReadBitsAvailable(self.readBit, 16*length)
 
-        self.readPos = self.computeReadPointerBits(pos)
+        self.readBit = self.computeReadPointerBits(pos)
         result = []
         for _ in range(length):
             result.append(self.getUInt16())
@@ -688,7 +690,7 @@ class Message(MessageBase):
             self.appendBits(value.to_bytes(length=4, byteorder=self.byte_order, signed=True))
         else:
             self.replaceBits(value.to_bytes(length=4, byteorder=self.byte_order, signed=True), pos)
-        return 4
+        return 4 * BITS_PER_BYTE
 
     def getInt32(self, pos: int = -1) -> int:
         """
@@ -709,9 +711,9 @@ class Message(MessageBase):
         """
         length, bits_read = self.getVarULong(pos) if length < 0 else (length, 0)
 
-        self.checkReadBitsAvailable(self.readPos, 4* length)
+        self.checkReadBitsAvailable(self.readBit + bits_read, length * BITS_PER_BYTE * 4)
 
-        self.readPos = self.computeReadPointerBits(pos)
+        self.readBit = self.computeReadPointerBits(pos) + bits_read
         result = []
         for _ in range(length):
             result.append(self.getInt32())
@@ -727,16 +729,16 @@ class Message(MessageBase):
         :param pos: overrides the data at the given position if >= 0, otherwise the data is appended
         :return: the number of bytes written to the messages payload
         """
-        bytesWritten = 0
+        bitsWritten = 0
         if includeLength:
-            bytesWritten = self.putVarULong(len(value), pos)
+            bitsWritten = self.putVarULong(len(value), pos)
 
-        self.checkBitsAvailable(len(value) * 32)
+        self.checkBitsAvailable(len(value) * 16)
 
         for val in value:
-            bytesWritten += self.putInt32(val, -1 if pos < 0 else pos+bytesWritten)
+            bitsWritten += self.putInt32(val, -1 if pos < 0 else pos + bitsWritten)
 
-        return bytesWritten
+        return bitsWritten
 
     def putUInt32(self, value: int, pos: int = -1) -> int:
         """
@@ -752,7 +754,7 @@ class Message(MessageBase):
             self.appendBits(value.to_bytes(length=4, byteorder=self.byte_order, signed=False))
         else:
             self.replaceBits(value.to_bytes(length=4, byteorder=self.byte_order, signed=False), pos)
-        return 4
+        return 4 * BITS_PER_BYTE
 
     def getUInt32(self, pos: int = -1) -> int:
         """
@@ -772,16 +774,16 @@ class Message(MessageBase):
         :param pos: overrides the data at the given position if >= 0, otherwise the data is appended
         :return: the number of bytes written to the messages payload
         """
-        bytesWritten = 0
+        bitsWritten = 0
         if includeLength:
-            bytesWritten = self.putVarULong(len(value), pos)
+            bitsWritten = self.putVarULong(len(value), pos)
 
         self.checkBitsAvailable(len(value) * 32)
 
         for val in value:
-            bytesWritten += self.putUInt32(val, -1 if pos < 0 else pos+bytesWritten)
+            bitsWritten += self.putUInt32(val, -1 if pos < 0 else pos + bitsWritten)
 
-        return bytesWritten
+        return bitsWritten
 
     def getUInt32Array(self, length: int = -1, pos: int = -1) -> List[int]:
         """
@@ -793,9 +795,9 @@ class Message(MessageBase):
         """
         length, bits_read = self.getVarULong(pos) if length < 0 else (length, 0)
 
-        self.checkReadBitsAvailable(self.readPos, 4 * length)
+        self.checkReadBitsAvailable(self.readBit + bits_read, length * BITS_PER_BYTE * 4)
 
-        self.readPos = self.computeReadPointerBits(pos)
+        self.readBit = self.computeReadPointerBits(pos) + bits_read
         result = []
         for _ in range(length):
             result.append(self.getUInt32())
@@ -821,7 +823,7 @@ class Message(MessageBase):
             self.appendBits(value.to_bytes(length=8, byteorder=self.byte_order, signed=True))
         else:
             self.replaceBits(value.to_bytes(length=8, byteorder=self.byte_order, signed=True), pos)
-        return 8
+        return 8 * BITS_PER_BYTE
 
     def getInt64(self, pos: int = -1) -> int:
         """
@@ -841,16 +843,16 @@ class Message(MessageBase):
         :param pos: overrides the data at the given position if >= 0, otherwise the data is appended
         :return: the number of bytes written to the messages payload
         """
-        bytesWritten = 0
+        bitsWritten = 0
         if includeLength:
-            bytesWritten = self.putVarULong(len(value), pos)
+            bitsWritten = self.putVarULong(len(value), pos)
 
         self.checkBitsAvailable(len(value) * 64)
 
         for val in value:
-            bytesWritten += self.putInt64(val, -1 if pos < 0 else pos+bytesWritten)
+            bitsWritten += self.putInt64(val, -1 if pos < 0 else pos + bitsWritten)
 
-        return bytesWritten
+        return bitsWritten
 
     def getInt64Array(self, length: int = -1, pos: int = -1) -> List[int]:
         """
@@ -862,9 +864,9 @@ class Message(MessageBase):
         """
         length, bits_read = self.getVarULong(pos) if length < 0 else (length, 0)
 
-        self.checkReadBitsAvailable(self.readPos, 8 * length)
+        self.checkReadBitsAvailable(self.readBit + bits_read, length * BITS_PER_BYTE * 64)
 
-        self.readPos = self.computeReadPointerBits(pos)
+        self.readBit = self.computeReadPointerBits(pos) + bits_read
         result = []
         for _ in range(length):
             result.append(self.getInt64())
@@ -885,7 +887,7 @@ class Message(MessageBase):
             self.appendBits(value.to_bytes(length=8, byteorder=self.byte_order, signed=False))
         else:
             self.replaceBits(value.to_bytes(length=8, byteorder=self.byte_order, signed=False), pos)
-        return 8
+        return 8 * BITS_PER_BYTE
 
     def getUInt64(self, pos: int = -1) -> int:
         """
@@ -905,16 +907,16 @@ class Message(MessageBase):
         :param pos: overrides the data at the given position if >= 0, otherwise the data is appended
         :return: the number of bytes written to the messages payload
         """
-        bytesWritten = 0
+        bitsWritten = 0
         if includeLength:
-            bytesWritten = self.putVarULong(len(value), pos)
+            bitsWritten = self.putVarULong(len(value), pos)
 
         self.checkBitsAvailable(len(value) * 64)
 
         for val in value:
-            bytesWritten += self.putUInt64(val, -1 if pos < 0 else pos+bytesWritten)
+            bitsWritten += self.putUInt64(val, -1 if pos < 0 else pos+bitsWritten)
 
-        return bytesWritten
+        return bitsWritten
 
     def getUInt64Array(self, length: int = -1, pos: int = -1) -> List[int]:
         """
@@ -926,12 +928,12 @@ class Message(MessageBase):
         """
         length, bits_read = self.getVarULong(pos) if length < 0 else (length, 0)
 
-        self.checkReadBitsAvailable(self.readPos, 8 * length)
+        self.checkReadBitsAvailable(self.readBit + bits_read, length * BITS_PER_BYTE * 8)
 
-        self.readPos = self.computeReadPointerBits(pos)
+        self.readBit = self.computeReadPointerBits(pos) + bits_read
         result = []
         for _ in range(length):
-            result.append(self.getUInt64())
+            result.append(self.getInt64())
 
         return result
 
@@ -953,7 +955,7 @@ class Message(MessageBase):
             self.appendBits(fp32_to_bytes(value))
         else:
             self.replaceBits(fp32_to_bytes(value), pos)
-        return 4
+        return 4 * BITS_PER_BYTE
 
     def getFloat(self, pos: int = -1) -> float:
         """
@@ -973,16 +975,16 @@ class Message(MessageBase):
         :param pos: overrides the data at the given position if >= 0, otherwise the data is appended
         :return: the number of bytes written to the messages payload
         """
-        bytesWritten = 0
+        bitsWritten = 0
         if includeLength:
-            bytesWritten = self.putVarULong(len(value), pos)
+            bitsWritten = self.putVarULong(len(value), pos)
 
         self.checkBitsAvailable(len(value) * 32)
 
         for val in value:
-            bytesWritten += self.putFloat(val, -1 if pos < 0 else pos+bytesWritten)
+            bitsWritten += self.putFloat(val, -1 if pos < 0 else pos + bitsWritten)
 
-        return bytesWritten
+        return bitsWritten
 
     def getFloatArray(self, length: int = -1, pos: int = -1) -> List[float]:
         """
@@ -994,12 +996,12 @@ class Message(MessageBase):
         """
         length, bits_read = self.getVarULong(pos) if length < 0 else (length, 0)
 
-        self.checkReadBitsAvailable(self.readPos, 4* length)
+        self.checkReadBitsAvailable(self.readBit + bits_read, length * BITS_PER_BYTE * 4)
 
-        self.readPos = self.computeReadPointerBits(pos)
+        self.readBit = self.computeReadPointerBits(pos) + bits_read
         result = []
         for _ in range(length):
-            result.append(self.getFloat())
+            result.append(self.getInt8())
 
         return result
 
@@ -1021,7 +1023,7 @@ class Message(MessageBase):
             self.appendBits(fp64_to_bytes(value))
         else:
             self.replaceBits(fp64_to_bytes(value), pos)
-        return 8
+        return 8*BITS_PER_BYTE
 
     def getDouble(self, pos: int = -1) -> float:
         """
@@ -1041,16 +1043,16 @@ class Message(MessageBase):
         :param pos: overrides the data at the given position if >= 0, otherwise the data is appended
         :return: the number of bytes written to the messages payload
         """
-        bytesWritten = 0
+        bitsWritten = 0
         if includeLength:
-            bytesWritten = self.putVarULong(len(value), pos)
+            bitsWritten = self.putVarULong(len(value), pos)
 
         self.checkBitsAvailable(len(value) * 64)
 
         for val in value:
-            bytesWritten += self.putDouble(val, -1 if pos < 0 else pos+bytesWritten)
+            bitsWritten += self.putDouble(val, -1 if pos < 0 else pos + bitsWritten)
 
-        return bytesWritten
+        return bitsWritten
 
     def getDoubleArray(self, length: int = -1, pos: int = -1) -> List[float]:
         """
@@ -1062,9 +1064,9 @@ class Message(MessageBase):
         """
         length, bits_read = self.getVarULong(pos) if length < 0 else (length, 0)
 
-        self.checkReadBitsAvailable(self.readPos, 4* length)
+        self.checkReadBitsAvailable(self.readBit + bits_read, length * BITS_PER_BYTE * 8)
 
-        self.readPos = self.computeReadPointerBits(pos)
+        self.readBit = self.computeReadPointerBits(pos) + bits_read
         result = []
         for _ in range(length):
             result.append(self.getDouble())
@@ -1083,14 +1085,8 @@ class Message(MessageBase):
         :return: the number of bytes written to the messages payload
         """
         encoded = value.encode("utf-8")
-        offset = self.putVarULong(len(encoded), pos)
 
-        self.checkBitsAvailable(len(encoded)*BITS_PER_BYTE)
-        if pos < 0:
-            self.appendBits(encoded)
-        else:
-            self.replaceBits(encoded, offset+pos)
-        return len(encoded) + offset
+        return self.putInt8Array(encoded, includeLength=True, pos=pos)
 
     def getString(self, pos: int = -1) -> str:
         """
@@ -1103,10 +1099,9 @@ class Message(MessageBase):
         length, bits_read = self.getVarULong(pos)
 
         if pos < 0:
-            pos = self.readPos
+            pos = self.readBit
 
-        self.readPos = pos+length
-        return self.data[pos: pos+length].decode("utf-8")
+        return self.getBytes(length, pos + bits_read).decode("utf-8")
 
     def putStringArray(self, value: List[str], includeLength:bool = True, pos: int = -1):
         """
@@ -1117,14 +1112,14 @@ class Message(MessageBase):
         :param pos: overrides the data at the given position if >= 0, otherwise the data is appended
         :return: the number of bytes written to the messages payload
         """
-        bytesWritten = 0
+        bits_written = 0
         if includeLength:
-            bytesWritten = self.putVarULong(len(value), pos)
+            bits_written = self.putVarULong(len(value), pos)
 
         for val in value:
-            bytesWritten += self.putString(val, -1 if pos < 0 else pos+bytesWritten)
+            bits_written += self.putString(val, -1 if pos < 0 else pos+bits_written)
 
-        return bytesWritten
+        return bits_written
 
     def getStringArray(self, length: int = -1, pos: int = -1) -> List[str]:
         """
@@ -1136,12 +1131,22 @@ class Message(MessageBase):
         """
         length, bits_read = self.getVarULong(pos) if length < 0 else (length, 0)
 
-        self.readPos = self.computeReadPointerBits(pos)
+        self.readBit = self.computeReadPointerBits(pos) + bits_read
         result = []
         for _ in range(length):
             result.append(self.getString())
 
         return result
+
+    def appendMessage(self, message: 'Message', amount: Optional[int]=None, startBit: Optional[int]=None):
+        if amount is None:
+            amount = message.unreadBits
+        if startBit is None:
+            startBit = message.readBit
+
+        self.checkBitsAvailable(amount)
+        self.putBits(message.peekBits(amount, startBit), amount)
+
 
     #endregion
 
@@ -1200,14 +1205,7 @@ class Message(MessageBase):
     #endregion
 
     #endregion
-    def addMessage(self, message: MessageBase, amount: int=None, startBit: int=None):
-        if amount is None:
-            amount = message.unreadBits
-        if startBit is None:
-            startBit = message.readBit
 
-        pass
-        #TODO Implement
 
 
 #region Creator
