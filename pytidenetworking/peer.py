@@ -1,4 +1,5 @@
-from dataclasses import dataclass, field
+# Updated to 2.1.0
+
 from enum import IntEnum
 from queue import PriorityQueue
 from time import time
@@ -12,7 +13,7 @@ from .constants import *
 if TYPE_CHECKING:
 
     from pytidenetworking.connection import Connection
-    from pytidenetworking.message_base import MessageHeader
+    from pytidenetworking.message_base import MessageHeader, MIN_NOTIFY_BYTES, MIN_RELIABLE_BYTES
 
 
 class RejectReason(IntEnum):
@@ -237,7 +238,20 @@ class Peer:
         """
         header = data[0]
         message = createRawMessage(data)
-        self.messageQueue.append(MessageToHandle(message, header, connection))
+        if message.sendMode == MessageHeader.Notify:
+            if amount < MIN_NOTIFY_BYTES:
+                return
+            connection.processNotify(data, len(data), message)
+        elif message.sendMode == MessageHeader.Unreliable:
+            self.messageQueue.append(MessageToHandle(message, header, connection))
+            connection.metrics.receivedUnreliable(len(data))
+        else:
+            if amount < MIN_RELIABLE_BYTES:
+                return
+            if connection.shouldHandle(message.seqID):
+                self.messageQueue.append(MessageToHandle(message, header, connection))
+            else:
+                connection.metrics.incrementReliableDiscarded()
 
     def handle(self, message: Message, header: Union["MessageHeader", int], connection: "Connection"):
         """

@@ -29,6 +29,10 @@ class Server(Peer):
         """
         Invoked when a client connects.
         """
+        self.ConnectionFailed: EventHandler = EventHandler()
+        """
+        Invoked when a connection fails to be fully established.
+        """
 
         self.MessageReceived: EventHandler = EventHandler()
         """
@@ -124,6 +128,16 @@ class Server(Peer):
         :return: the number of clients currently connected to this server
         """
         return len(self.__clients)
+
+    @property
+    def timeoutTime(self):
+        return self._defaultTimeout
+
+    @timeoutTime.setter
+    def timeoutTime(self, value: int):
+        self._defaultTimeout = value
+        for connection in self.__clients.values():
+            connection.timeoutTime = self._defaultTimeout
 
     #region Message Handlers
 

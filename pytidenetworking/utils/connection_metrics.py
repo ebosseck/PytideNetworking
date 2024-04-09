@@ -200,3 +200,6 @@ class ConnectionMetrics:
 
     def incrementNotifyDiscarded(self):
         self.__notifyDiscarded += 1
+
+    def incrementReliableDiscarded(self):
+        self.__reliableDiscarded += 1

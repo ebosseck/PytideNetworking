@@ -1,7 +1,9 @@
-from dataclasses import dataclass, field
+# Updated to 2.1.0
+
 from typing import TYPE_CHECKING
 
 from pytidenetworking.message_base import MessageBase
+from pytidenetworking.peer import DisconnectReason
 from pytidenetworking.utils.delayed_events import DelayedEvent
 from pytidenetworking.utils.logengine import getLogger
 from pytidenetworking.utils.object_pool import ObjectPool
@@ -91,10 +93,13 @@ class PendingMessage(MessageBase):
         Attempts to send the message.
         :return:
         """
-        if self.__sendAttempts >= MAX_SEND_ATTEMPTS:
+        if self.__sendAttempts >= MAX_SEND_ATTEMPTS and self.connection.canQualityDisconnect:
             self.clear()
+            self.connection.peer.disconnect(connection=self.connection, reason=DisconnectReason.PoorConnection)
             return
-        self.connection.send(*self.createBytestream())
+        bytestream, amount = self.createBytestream()
+        self.connection.send(bytestream, amount)
+        self.connection.metrics.sentReliable(amount)
         self.__lastSendTime = self.connection.peer.current_time
         self.__sendAttempts += 1
 
@@ -102,17 +107,16 @@ class PendingMessage(MessageBase):
                                                                int(self.connection.smoothRTT * RETRY_TIME_MULTIPLIER))
         self.connection.peer.executeLater(delay, PendingMessageResendEvent(priority=delay, message=self))
 
-    def clear(self, shouldRemoveFromDictionary: bool = True):
+    def clear(self):
         """
         Clears the message.
 
         :param shouldRemoveFromDictionary: Whether or not to remove the message from the connection's pending messages
         :return:
         """
-        if shouldRemoveFromDictionary:
-            del self.connection.pendingMessages[self.seqID]
         self.__wasCleared = True
         self.release()
+
 
 def createPending(sequenceID: int, message: MessageBase, connection: "Connection"):
     """
