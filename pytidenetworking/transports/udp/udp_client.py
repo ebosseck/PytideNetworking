@@ -1,3 +1,5 @@
+# Updated to 2.1.0
+
 from typing import Union, List, Tuple
 
 from pytidenetworking.connection import Connection
@@ -56,4 +58,5 @@ class UDPClient(UDPPeer, IClient):
         :param amount: length of data received
         :param fromConnection: Connection the date is received from
         """
-        self.DataReceived(dataBuffer, amount, fromEndPoint)
+        if self.udpConnection.remoteEndpoint == fromEndPoint and not self.udpConnection.isNotConnected:
+            self.DataReceived(dataBuffer, amount, fromEndPoint)

@@ -1,3 +1,5 @@
+# Updated to 2.1.0
+
 from enum import IntEnum
 import socket as so
 from socket import socket
@@ -25,7 +27,7 @@ __RECEIVE_POLLING_TIME = 500000 # 0.5 seconds
 
 class UDPPeer(IPeer):
 
-    def __init__(self, mode: SocketMode, socketBufferSize: int, listenAddress: str):
+    def __init__(self, mode: SocketMode, socketBufferSize: int, listenAddress: str= ""):
         """
         Initializes the transport
 
@@ -50,7 +52,10 @@ class UDPPeer(IPeer):
     def poll(self):
         self.receive()
 
-    def openSocket(self, port: int = 0):
+    def openSocket(self, listenAddress=None, port: int = 0):
+        if listenAddress is None:
+            listenAddress = self.listen_address
+
         if self.__isRunning:
             self.closeSocket()
 
@@ -71,10 +76,9 @@ class UDPPeer(IPeer):
             so.SO_RCVBUF,
             self.socketBufferSize)
 
-        #TODO: Allow to listen on certain IP only ?
         self.socket.setblocking(False)
 
-        self.socket.bind((self.listen_address, port))
+        self.socket.bind((listenAddress, port))
         self.remoteEndpoint = (self.listen_address, 0)
         self.__isRunning = True
 
@@ -119,8 +123,11 @@ class UDPPeer(IPeer):
                 self.onDataReceived(self.receivedData, byteCount, self.remoteEndpoint)
 
     def send(self, dataBuffer: Union[bytes, bytearray, List[int]], amount: int, toEndPoint: Tuple[str, int]):
-        if self.__isRunning:
-            self.socket.sendto(dataBuffer[:amount], toEndPoint)
+        try:
+            if self.__isRunning:
+                self.socket.sendto(dataBuffer[:amount], toEndPoint)
+        except Exception as ex:
+            logger.debug("Exception occured while sending UDP packet: {}".format(ex))
 
     def onDataReceived(self, dataBuffer: Union[bytes, bytearray, List[int]], amount: int, fromEndPoint: Tuple[str, int]):
         """

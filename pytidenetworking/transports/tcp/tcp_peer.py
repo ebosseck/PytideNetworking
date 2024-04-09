@@ -1,3 +1,5 @@
+# Updated to 2.1.0
+
 from typing import List, Optional, TYPE_CHECKING, Union
 
 from socket import socket
@@ -31,8 +33,8 @@ class TCPPeer(IPeer):
 
         self.socketBufferSize = socketBufferSize
 
-        self.receiveBuffer: bytearray = bytearray(self.socketBufferSize + 2)
-        self.sendBuffer: bytearray = bytearray(self.socketBufferSize + 2)
+        self.receiveBuffer: bytearray = bytearray(self.socketBufferSize)
+        self.sendBuffer: bytearray = bytearray(self.socketBufferSize + 4)
 
         self.socket: Optional[socket] = None
 

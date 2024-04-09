@@ -1,3 +1,5 @@
+# Updated to 2.1.0
+
 from typing import List, Dict, Callable, Union, Tuple, Optional
 
 from pytidenetworking.connection import Connection
@@ -28,6 +30,10 @@ class Server(Peer):
         self.ClientConnected: EventHandler = EventHandler()
         """
         Invoked when a client connects.
+        """
+        self.ConnectionFailed: EventHandler = EventHandler()
+        """
+        Invoked when a connection fails to be fully established.
         """
 
         self.MessageReceived: EventHandler = EventHandler()
@@ -125,6 +131,16 @@ class Server(Peer):
         """
         return len(self.__clients)
 
+    @property
+    def timeoutTime(self):
+        return self._defaultTimeout
+
+    @timeoutTime.setter
+    def timeoutTime(self, value: int):
+        self._defaultTimeout = value
+        for connection in self.__clients.values():
+            connection.timeoutTime = self._defaultTimeout
+
     #region Message Handlers
 
     def registerMessageHandler(self, messageID: int, callback: Callable[[int, Message], None]):
@@ -199,7 +215,7 @@ class Server(Peer):
 
     def unsubFromTransportEvents(self):
         """
-        Unsubscribes methods from all of the transport's events.
+        Unsubscribes methods from all the transport's events.
         :return:
         """
         self.__transport.Connected -= self.handleConnectionAttempt
@@ -213,7 +229,7 @@ class Server(Peer):
         :param connection: incoming connection attempt
         :return:
         """
-        connection._peer = self
+        connection.initialize(self, self._defaultTimeout)
 
     def handleConnect(self, connection: Connection, connectMessage: Message):
         """
@@ -223,20 +239,19 @@ class Server(Peer):
         :param connectMessage: The connect message
         :return:
         """
+        connection.setPending()
+
         if self.handleConnection is None:
             self.acceptConnection(connection)
-        elif connection not in self.__clients.values():
-            if connection not in self.__pendingConnections:
-                if self.clientCount < self.__maxClientCount:
-                    self.__pendingConnections.append(connection)
-                    self.send(createMessage(MessageHeader.Connect), connection)
-                    self.handleConnection(connection, connectMessage)
-                else:
-                    self.__reject(connection, RejectReason.ServerFull)
+        elif self.clientCount < self.__maxClientCount:
+            if connection not in self.__clients.values() and connection not in self.__pendingConnections:
+                self.__pendingConnections.append(connection)
+                self.send(createMessage(MessageHeader.Connect), connection)
+                self.handleConnection(connection, connectMessage)
             else:
-                self.__reject(connection, RejectReason.Pending)
+                self.__reject(connection, RejectReason.AlreadyConnected)
         else:
-            self.__reject(connection, RejectReason.AlreadyConnected)
+            self.__reject(connection, RejectReason.ServerFull)
 
     def accept(self, connection: Connection):
         """
@@ -259,6 +274,9 @@ class Server(Peer):
         :param message: Data that should be sent to the client being rejected. Use message.createInternal() to get an empty message instance
         :return:
         """
+        if message is not None and message.readBits != 0:
+            logger.error("Use the parameterless 'Message.Create()' overload when setting rejection data!")
+
         if connection in self.__pendingConnections:
             self.__pendingConnections.remove(connection)
             self.__reject(connection, RejectReason.Rejected, message)
@@ -271,19 +289,19 @@ class Server(Peer):
         Checks if the given connection can be accepted, and accepts the connection if possible.
 
         :param connection: The connection to accept
-        :return:
         """
-        if connection not in self.__clients:
-            if self.clientCount < self.__maxClientCount:
+        if self.clientCount < self.__maxClientCount:
+            if connection not in self.__clients:
                 clientID = self.getAvailableClientId()
                 connection.id = clientID
                 self.__clients[clientID] = connection
                 connection.resetTimeout()
                 connection.sendWelcome()
             else:
-                self.__reject(connection, RejectReason.ServerFull)
+                self.__reject(connection, RejectReason.AlreadyConnected)
         else:
-            self.__reject(connection, RejectReason.AlreadyConnected)
+            self.__reject(connection, RejectReason.ServerFull)
+
 
     def __reject(self, connection: Connection, reason: Union[RejectReason, int], rejectMessage: Message = None):
         """
@@ -296,15 +314,22 @@ class Server(Peer):
         :return:
         """
         if reason != RejectReason.AlreadyConnected:
+            # Sending a reject message about the client already being connected could theoretically be exploited to
+            # obtain information on other connected clients, although in practice that seems very unlikely.
+            # However, under normal circumstances, clients should never actually encounter a scenario
+            # where they are "already connected".
             message = createMessage(MessageHeader.Reject)
-            if rejectMessage != None:
-                message.putUInt8(RejectReason.Custom)
-                message.putBytes(rejectMessage.createConnectBytes())
-            else:
-                message.putUInt8(reason)
-            connection.sendMessage(message)
+            message.putUInt8(reason)
+
+            if reason == RejectReason.Custom:
+                message.appendMessage(rejectMessage)
+
+            for i in range(3): # riptide sends the reject message 3 times see server.cs ln 271
+                connection.sendMessage(message, False)
+            message.release()
+        connection.resetTimeout()
         connection.localDisconnect()
-        self.__transport.close(connection)
+        #self.__transport.close(connection)
 
         logger.info("Rejected connection from {}: {}.".format(connection, rejectReasonToString(reason)))
 
@@ -316,6 +341,10 @@ class Server(Peer):
         """
         for connection in self.__clients.values():
             if connection.hasTimedOut:
+                self.__timedOutClients.append(connection)
+
+        for connection in self.__pendingConnections:
+            if connection.hasConnectAttemptTimedOut:
                 self.__timedOutClients.append(connection)
 
         for connection in self.__timedOutClients:
@@ -349,8 +378,6 @@ class Server(Peer):
             self.onMessageReceived(message, connection)
         elif header == MessageHeader.Ack:
             connection.handleAck(message)
-        elif header == MessageHeader.AckExtra:
-            connection.handleAckExtra(message)
         elif header == MessageHeader.Connect:
             self.handleConnect(connection, message)
         elif header == MessageHeader.Heartbeat:
@@ -358,14 +385,13 @@ class Server(Peer):
         elif header == MessageHeader.Disconnect:
             self.localDisconnect(connection, DisconnectReason.Disconected)
         elif header == MessageHeader.Welcome:
-            if connection.isConnecting:
-                connection.handleWelcomeResponse(message)
+            if connection.handleWelcomeResponse(message):
                 self.onClientConnected(connection)
         else:
             logger.warning("Unexpected message header '{}'! Discarding message received from {}.".format(header, connection))
         message.release()
 
-    def send(self, message: Message, toClient: Union[int, Connection], shouldRelease: bool = True):
+    def send(self, message: Message, toClient: Union[int, Connection], shouldRelease: bool = True) -> int:
         """
         Sends a message to a given client
 
@@ -379,9 +405,9 @@ class Server(Peer):
                 toClient = self.__clients[toClient]
             else:
                 logger.debug("Attempted to send to non-existing client: '{}'".format(toClient))
-                return
+                return 0
 
-        toClient.sendMessage(message, shouldRelease)
+        return toClient.sendMessage(message, shouldRelease)
 
     def sendToAll(self, message: Message, exceptToClientId: int = -1, shouldRelease: bool = True):
         """
@@ -415,7 +441,7 @@ class Server(Peer):
             return False, None
         return True, self.__clients[id]
 
-    def disconnectClient(self, client: Union[int, Connection], message: Message):
+    def disconnectClient(self, client: Union[int, Connection], message: Message = None):
         """
         Disconnects the given client
 
@@ -424,6 +450,9 @@ class Server(Peer):
         Use message.createInternal() to get an empty message instance
         :return:
         """
+        if message is not None and message.readBits != 0:
+            logger.error("Use the parameterless 'Message.Create()' overload when setting disconnection data!")
+
         if isinstance(client, int):
             result, client = self.tryGetClient(client)
         else:
@@ -433,6 +462,10 @@ class Server(Peer):
             self.localDisconnect(client, DisconnectReason.Kicked)
         else:
             logger.warning("Could not disconnect client '{}' because it was not connected !".format(id))
+
+    def disconnect(self, connection: "Connection", reason: Union[DisconnectReason, int]):
+        if connection.isConnected and connection.canQualityDisconnect:
+            self.localDisconnect(connection, reason)
 
     def localDisconnect(self, client: Connection, reason: Union[DisconnectReason, int]):
         """
@@ -453,6 +486,8 @@ class Server(Peer):
         
         if client.isConnected:
             self.onClientDisconnected(client, reason)
+        elif client.isPending:
+            self.onConnectionFailed(client)
 
         client.localDisconnect()
 
@@ -490,6 +525,9 @@ class Server(Peer):
         Initializes available client IDs
         :return:
         """
+        if self.__maxClientCount > (2**16) - 1:
+            raise Exception("A server's max client count may not exceed {} !".format((2**16)-1))
+
         self.__availableClientIDs = list(range(1, self.__maxClientCount+1))
 
     def getAvailableClientId(self) -> int:
@@ -516,7 +554,7 @@ class Server(Peer):
         message = createMessage(MessageHeader.Disconnect)
         message.putUInt8(reason)
         if reason == DisconnectReason.Kicked and disconnectMessage is not None:
-            message.putBytes(disconnectMessage.createConnectBytes())
+            message.appendMessage(disconnectMessage)
 
         self.send(message, client)
 
@@ -557,6 +595,10 @@ class Server(Peer):
         logger.info("Client '{}' ({}) connected Successfully !".format(client.id, client))
         self.sendClientConnected(client)
         self.ClientConnected(client)
+
+    def onConnectionFailed(self, client):
+        logger.info("Connection {} stopped responding before the connection was fully established")
+        self.ConnectionFailed(client)
 
     def onMessageReceived(self, message: Message, connection: Connection):
         """

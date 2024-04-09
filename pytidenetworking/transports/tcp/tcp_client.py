@@ -1,4 +1,4 @@
-from typing import Tuple
+# Updated to 2.1.0
 
 from pytidenetworking.connection import Connection
 from pytidenetworking.transports.iclient import IClient
@@ -6,7 +6,7 @@ from pytidenetworking.transports.tcp.tcp_connection import TCPConnection
 from pytidenetworking.transports.tcp.tcp_peer import TCPPeer, DEFAULT_SOCKET_BUFFER_SIZE
 from pytidenetworking.utils.eventhandler import EventHandler
 
-from socket import socket, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_SNDBUF, SO_RCVBUF
+from socket import socket, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_SNDBUF, SO_RCVBUF, IPPROTO_TCP, TCP_NODELAY
 
 class TCPClient(TCPPeer, IClient):
     """
@@ -43,6 +43,11 @@ class TCPClient(TCPPeer, IClient):
             SOL_SOCKET,
             SO_RCVBUF,
             self.socketBufferSize)
+        self.socket.setsockopt(
+            IPPROTO_TCP,
+            TCP_NODELAY,
+            1
+        )
 
         self.socket.connect((host, port))
         self.socket.setblocking(False)

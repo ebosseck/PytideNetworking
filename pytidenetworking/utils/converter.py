@@ -25,18 +25,40 @@ BITS_PER_SEGMENT = 8 * BITS_PER_BYTE
 #region ZigZag Encoding
 
 def zigzagEncode(value: int, bitcount: int):
+    """
+    Zig-Zag encode the given number of bits from value
+    :param value: Value to encode
+    :param bitcount: number of bits to encode
+
+    :returns: the encoded value
+    """
     return (value >> (bitcount-1)) ^ (value << 1)
 
 
 def zigzagEncode32(value: int):
+    """
+    Zig-Zag encode 32 bits from value
+    :param value: Value to encode
+
+    :returns: the encoded value
+    """
     return zigzagEncode(value, 32)
 
 
 def zigzagEncode64(value: int):
+    """
+    Zig-Zag encode 64 bits from value
+    :param value: Value to encode
+
+    :returns: the encoded value
+    """
     return zigzagEncode(value, 64)
 
 
 def zigzagDecode(value: int):
+    """
+    Zigzag decode the given value
+    """
     return (value >> 1) ^ -(value&1)
 
 #endregion
@@ -158,15 +180,15 @@ def setBitsFromBytes(bitfield: READABLE_ARRAY, amount: int, array: WRITEABLE_ARR
             array[pos + i] = (bitfield[i]) & 0xff
     else:
         for i in range(byte_count):
-            array[pos + i] = ((bitfield[i] << bit) & (0xff << bit)) | (array[pos + i] & (0xff >> (8 - bit)))
-            array[pos + i + 1] = ((bitfield[i] >> (8 - bit)) & (0xff >> (8 - bit))) | (array[pos + i + 1] & (0xff << bit))
+            array[pos + i] = (((bitfield[i] << bit) & (0xff << bit)) | (array[pos + i] & (0xff >> (8 - bit)))) & 0xff
+            array[pos + i + 1] = (((bitfield[i] >> (8 - bit)) & (0xff >> (8 - bit))) | (array[pos + i + 1] & (0xff << bit))) & 0xff
 
     if bits_remaining != 0:
         mask = ((1 << amount) - 1) & 0xff
         invmask = ~mask
         bits = bitfield[byte_count + 1] & mask
-        array[pos + byte_count] = ((bits << bit) & (mask << bit)) | (array[pos + byte_count] & (invmask >> (8 - bit)))
-        array[pos + byte_count + 1] = ((bits >> (8 - bit)) & (mask >> (8 - bit))) | (array[pos + byte_count + 1] & (invmask << bit))
+        array[pos + byte_count] = (((bits << bit) & (mask << bit)) | (array[pos + byte_count] & (invmask >> (8 - bit)))) & 0xff
+        array[pos + byte_count + 1] = (((bits >> (8 - bit)) & (mask >> (8 - bit))) | (array[pos + byte_count + 1] & (invmask << bit))) & 0xff
     return array
 
 
@@ -362,32 +384,46 @@ def bytesToBits(value: READABLE_ARRAY, array: WRITEABLE_ARRAY, startBit: int):
 
 
 def bytesFromBits(array: READABLE_ARRAY, count: int, startBit: int) -> READABLE_ARRAY:
+
     pos: int = startBit // BITS_PER_BYTE
     bit: int = startBit % BITS_PER_BYTE
+    byteCount = int(ceil(float(count) / BITS_PER_BYTE))
 
     if bit == 0:
-        return array[pos:pos+count]
+        return array[pos:pos+byteCount]
     else:
         val = []
-        for i in range(count):
-            val.append((array[i] >> bit) | (array[i] << (8 - bit)))
+        for i in range(byteCount):
+            val.append((array[i]&0xff >> bit) | (array[i] << (8 - bit)) & 0xff)
+
+        print(val)
         return bytes(val)
 #endregion
 
 #endregion
 
-
 #region VarLen
+def toVarLong(value: int) -> WRITEABLE_ARRAY:
+    return toVarULong(zigzagEncode64(value))
+
+def fromVarULong(data: READABLE_ARRAY, pos):
+    r, c = fromVarULong(data, pos)
+    return zigzagDecode(r), c
+
 def toVarULong(value: int) -> WRITEABLE_ARRAY:
+    if value < 0:
+        raise Exception("Value MUST be positive. Use ZigZag encoding for negative values")
+
     tmp_data = []
+
     while True:
         byte_val = value & 0b_0111_1111
         value >>= 7
         if value != 0:
-            byte_val |= 0b_0111_1111
+            byte_val |= 0b1000_0000
             tmp_data.append(byte_val)
         else:
-            tmp_data.append(byte_val | 0b1000_0000)
+            tmp_data.append(byte_val)
             break
     return tmp_data
 
@@ -397,11 +433,13 @@ def fromVarULong(data: READABLE_ARRAY, pos: int):
     val = 0
     bytes_read = 0
     while True:
-        byte_val = byteFromBits(data, pos + bytes_read * BITS_PER_BYTE)
+
+        byte_val = byteFromBits(data, pos + (bytes_read * BITS_PER_BYTE))
         val |= (byte_val & 0b0111_1111) << shift
         bytes_read += 1
         shift += 7
-        if byte_val & 0b1000_0000 == 1:
+
+        if (byte_val & 0b1000_0000) == 0:
             break
     return val, bytes_read*BITS_PER_BYTE
 

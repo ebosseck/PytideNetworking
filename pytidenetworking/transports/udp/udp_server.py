@@ -1,8 +1,9 @@
-from _socket import NI_NUMERICSERV, NI_NUMERICHOST
+# Updated to 2.1.0
+
 from typing import Dict, Tuple, Union, List
 
 from pytidenetworking.connection import Connection
-from pytidenetworking.message_base import MessageHeader
+from pytidenetworking.message_base import MessageHeader, HEADER_BITMASK
 from pytidenetworking.transports.iserver import IServer
 from pytidenetworking.transports.udp.udp_connection import UDPConnection
 from pytidenetworking.transports.udp.udp_peer import UDPPeer, SocketMode, _DEFAULT_SOCKET_BUFFER_SIZE
@@ -32,18 +33,19 @@ class UDPServer(UDPPeer, IServer):
     def start(self, port: int):
         self._port = port
         self.connections.clear()
-        self.openSocket(port)
+        self.openSocket(port=port)
 
-    def handleConnectionAttempt(self, connection: UDPConnection) -> bool:
+    def handleConnectionAttempt(self, fromEndpoint: Tuple[str, int]) -> bool:
         """
         Decides what to do with a connection attempt.
 
         :param connection: The connection to accept or reject.
         :returns: Whether or not the connection attempt was a new connection.
         """
-        if connection.remoteEndpoint in self.connections:
+        if fromEndpoint in self.connections:
             return False
-        self.connections[connection.remoteEndpoint] = connection
+        connection = UDPConnection(fromEndpoint, self)
+        self.connections[fromEndpoint] = connection
         self.onConnected(connection)
         return True
 
@@ -72,8 +74,10 @@ class UDPServer(UDPPeer, IServer):
         :param fromEndpoint: the endpoint the bytes were received from
         :return:
         """
-        if dataBuffer[0] == MessageHeader.Connect and not self.handleConnectionAttempt(UDPConnection(fromEndPoint, self)):
+        if (dataBuffer[0] & HEADER_BITMASK) == MessageHeader.Connect and not self.handleConnectionAttempt(fromEndPoint):
             return
 
         if fromEndPoint in self.connections.keys():
-            self.DataReceived(dataBuffer, amount, self.connections[fromEndPoint])
+            c = self.connections[fromEndPoint]
+            if not c.isNotConnected:
+                self.DataReceived(dataBuffer, amount, c)

@@ -1,3 +1,5 @@
+# Updated to 2.1.0
+
 from typing import Tuple, List, Union
 try:
     from typing import Literal
@@ -18,7 +20,7 @@ logger = getLogger("TCPConnection")
 BYTE_ORDER_LITTLE: Literal['big', 'little'] = "little"
 BYTE_ORDER_BIG: Literal['big', 'little'] = "big"
 
-MESSAGE_LENGTH_BYTES = 2 # ushort
+MESSAGE_LENGTH_BYTES = 4 # int
 
 class TCPConnection(Connection):
     """
@@ -35,6 +37,8 @@ class TCPConnection(Connection):
         super().__init__()
         self.socket = socket
         self.remoteEndpoint = remoteEndpoint
+
+        self._didReceiveConnect = False
 
         self.byte_order = BYTE_ORDER_LITTLE
 
@@ -75,9 +79,12 @@ class TCPConnection(Connection):
         if len(dataBuffer) <= 0:
             raise ArgumentOutOfRangeException()
 
+        realAmount = min(len(dataBuffer), amount)
+
         try:
-            self.__tcpPeer.sendBuffer = bytearray(len(dataBuffer).to_bytes(length=MESSAGE_LENGTH_BYTES, byteorder=self.byte_order, signed=False))
-            self.__tcpPeer.sendBuffer.extend(dataBuffer)
+            self.__tcpPeer.sendBuffer = bytearray(realAmount.to_bytes(length=MESSAGE_LENGTH_BYTES, byteorder=self.byte_order, signed=True))
+            #todo: double check: why signed ?
+            self.__tcpPeer.sendBuffer.extend(dataBuffer[:realAmount])
             self.socket.sendall(self.__tcpPeer.sendBuffer)
         except error as ex:
             logger.debug(ex)
@@ -89,7 +96,6 @@ class TCPConnection(Connection):
         while(tryReceiveMore):
             byteCount = 0
             try:
-
                 if self.nextMessageSize > 0:
                     tryReceiveMore, byteCount = self.tryReceiveMessage()
                 else:
@@ -100,7 +106,7 @@ class TCPConnection(Connection):
                             tryReceiveMore = False
                             break # No new bytes received
 
-                    self.nextMessageSize = int.from_bytes(self.sizeBytes, self.byte_order, signed=False)
+                    self.nextMessageSize = int.from_bytes(self.sizeBytes, self.byte_order, signed=True)
                     if self.nextMessageSize > 0:
                         tryReceiveMore, byteCount = self.tryReceiveMessage()
 
@@ -156,4 +162,3 @@ class TCPConnection(Connection):
         """
         logger.debug("Close Socket")
         self.socket.close()
-

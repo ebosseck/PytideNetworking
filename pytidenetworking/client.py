@@ -241,7 +241,7 @@ class Client(Peer):
         self.__maxConnectionAttempts = maxConnectionAttempts
         self.__connectionAttempts = 0
         #self.__connection._peer = self
-        self.__connection.initialize(self, self.defaultTimeout)
+        self.__connection.initialize(self, self._defaultTimeout)
         increaseActiveCount()
 
         if useMessageHandlers:

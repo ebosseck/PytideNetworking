@@ -3,7 +3,7 @@
 try:
     from typing import Literal, Optional
 except ImportError:
-    from typing_extensions import Literal
+    from typing_extensions import Literal, Optional
 
 from .message_base import *
 from .utils.converter import fp32_to_bytes, fp64_to_bytes, bytes_to_fp32, bytes_to_fp64, BITS_PER_BYTE, \
@@ -88,6 +88,7 @@ class Message(MessageBase):
         :return:
         """
         self.data = bytearray()
+        self.data.extend([0] * 1225)
         if header is not None:
             self.header = header
         self.readBit = 0

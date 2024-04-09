@@ -1,3 +1,5 @@
+# Updated to 2.1.0
+
 from typing import Union, List, Tuple
 
 from pytidenetworking.connection import Connection

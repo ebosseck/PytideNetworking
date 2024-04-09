@@ -1,3 +1,5 @@
+# Updated to 2.1.0
+
 from pytidenetworking.transports.ipeer import IPeer, EventHandler
 
 

@@ -268,7 +268,12 @@ class MessageBase:
         """
         :return: the send mode of this message (either Reliable = 7 or Unreliable = 0)
         """
-        return MessageSendMode.Reliable if self.hasSequenceID else MessageSendMode.Unreliable
+        if self.header < MessageHeader.Notify:
+            return MessageSendMode.Unreliable
+        elif self.header < MessageHeader.Reliable:
+            return MessageSendMode.Notify
+        else:
+            return MessageSendMode.Reliable
 
     def release(self):
         """

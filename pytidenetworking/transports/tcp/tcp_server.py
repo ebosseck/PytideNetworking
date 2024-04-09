@@ -1,12 +1,13 @@
 from typing import List, Tuple, Dict
 
 from pytidenetworking.connection import Connection
+from pytidenetworking.message_base import MessageHeader, HEADER_BITMASK
 from pytidenetworking.transports.iserver import IServer
 from pytidenetworking.transports.tcp.tcp_connection import TCPConnection
 from pytidenetworking.transports.tcp.tcp_peer import TCPPeer, DEFAULT_SOCKET_BUFFER_SIZE
 
 from socket import socket, SOL_SOCKET, SO_REUSEADDR, AF_INET, SOCK_STREAM, NI_NUMERICHOST, NI_NUMERICSERV,\
-    SO_SNDBUF, SO_RCVBUF, getnameinfo
+    SO_SNDBUF, SO_RCVBUF, getnameinfo, IPPROTO_TCP, TCP_NODELAY
 
 from pytidenetworking.utils.logengine import getLogger
 
@@ -61,7 +62,11 @@ class TCPServer(TCPPeer, IServer):
             SOL_SOCKET,
             SO_RCVBUF,
             self.socketBufferSize)
-
+        self.socket.setsockopt(
+            IPPROTO_TCP,
+            TCP_NODELAY,
+            1
+        )
         self.socket.setblocking(False)
 
         self._port = port
@@ -120,6 +125,8 @@ class TCPServer(TCPPeer, IServer):
                 connection = TCPConnection(connectionSocket, endpoint, self)
                 self.connections[connection.remoteEndpoint] = connection
                 self.onConnected(connection=connection)
+            else:
+                connectionSocket.close()
         except BlockingIOError:
             pass
 
@@ -170,4 +177,9 @@ class TCPServer(TCPPeer, IServer):
         :param fromConnection: connection which received the data
         :return:
         """
+        if self.receiveBuffer[0] & HEADER_BITMASK == MessageHeader.Connect:
+            if fromConnection._didReceiveConnect:
+                return
+            fromConnection._didReceiveConnect = True
+
         self.DataReceived(self.receiveBuffer, amount, fromConnection)
