@@ -91,6 +91,9 @@ def setBits8(bitfield: int, amount: int, array: WRITEABLE_ARRAY, startBit: int):
     invMask = ~mask
     pos = startBit // BITS_PER_BYTE
     bit = startBit % BITS_PER_BYTE
+
+    ensureSpaceAvailable(array, startBit, 8)
+
     if bit == 0:
         array[pos] = (bitfield | (array[pos] & invMask)) &0xff
     else:
@@ -105,6 +108,9 @@ def setBits16(bitfield: int, amount: int, array: WRITEABLE_ARRAY, startBit: int)
     invMask = ~mask
     pos = startBit // BITS_PER_BYTE
     bit = startBit % BITS_PER_BYTE
+
+    ensureSpaceAvailable(array, startBit, 16)
+
     if bit == 0:
         array[pos] = (bitfield | (array[pos] & invMask)) &0xff
         array[pos+1] = (bitfield >> 8 | (array[pos+1] & (invMask >> 8))) & 0xff
@@ -123,6 +129,9 @@ def setBits32(bitfield: int, amount: int, array: WRITEABLE_ARRAY, startBit: int)
     invMask = ~mask
     pos = startBit // BITS_PER_BYTE
     bit = startBit % BITS_PER_BYTE
+
+    ensureSpaceAvailable(array, startBit, 32)
+
     if bit == 0:
         array[pos] = (bitfield | (array[pos] & invMask)) & 0xff
         array[pos + 1] = (bitfield >> 8 | (array[pos + 1] & invMask >> 8)) & 0xff
@@ -145,6 +154,9 @@ def setBits64(bitfield: int, amount: int, array: WRITEABLE_ARRAY, startBit: int)
     invMask = ~mask
     pos = startBit // BITS_PER_BYTE
     bit = startBit % BITS_PER_BYTE
+
+    ensureSpaceAvailable(array, startBit, 64)
+
     if bit == 0:
         array[pos] = (bitfield | (array[pos] & invMask)) & 0xff
         array[pos + 1] = (bitfield >> 8 | (array[pos + 1] & invMask >> 8)) & 0xff
@@ -175,6 +187,8 @@ def setBitsFromBytes(bitfield: READABLE_ARRAY, amount: int, array: WRITEABLE_ARR
     byte_count = amount // BITS_PER_BYTE
     bits_remaining = amount % BITS_PER_BYTE
 
+    ensureSpaceAvailable(array, startBit, amount if bits_remaining == 0 else amount + BITS_PER_BYTE)
+
     if bit == 0:
         for i in range(byte_count):
             array[pos + i] = (bitfield[i]) & 0xff
@@ -186,9 +200,11 @@ def setBitsFromBytes(bitfield: READABLE_ARRAY, amount: int, array: WRITEABLE_ARR
     if bits_remaining != 0:
         mask = ((1 << amount) - 1) & 0xff
         invmask = ~mask
-        bits = bitfield[byte_count + 1] & mask
-        array[pos + byte_count] = (((bits << bit) & (mask << bit)) | (array[pos + byte_count] & (invmask >> (8 - bit)))) & 0xff
-        array[pos + byte_count + 1] = (((bits >> (8 - bit)) & (mask >> (8 - bit))) | (array[pos + byte_count + 1] & (invmask << bit))) & 0xff
+        bits = bitfield[byte_count] & mask
+        array[pos + byte_count] = (((bits << bit) & (mask << bit)) | (array[pos + byte_count]
+                                                                      & (invmask >> (8 - bit)))) & 0xff
+        array[pos + byte_count + 1] = (((bits >> (8 - bit)) & (mask >> (8 - bit))) | (array[pos + byte_count + 1]
+                                                                                      & (invmask << bit))) & 0xff
     return array
 
 
@@ -197,11 +213,18 @@ def setBitsSegmentArray(bitfield: int, amount: int, array: List[int], startBit: 
     bitfield &= mask
     pos = startBit // BITS_PER_SEGMENT
     bit = startBit % BITS_PER_SEGMENT
+
     if bit == 0:
+        if len(array) <= pos:
+            array.extend([0] * (pos - len(array)))
         array[pos] = bitfield | array[pos] & ~mask
     elif bit + amount < BITS_PER_SEGMENT:
+        if len(array) <= pos:
+            array.extend([0] * (pos - len(array)))
         array[pos] = (bitfield << bit) | (array[pos] & ~(mask << bit))
     else:
+        if len(array) <= (pos+1):
+            array.extend([0] * ((pos+1) - len(array)))
         array[pos] = (bitfield << bit) | (array[pos] & ~(mask << bit))
         array[pos + 1] = (bitfield >> (BITS_PER_SEGMENT - bit)) | (array[pos + 1] & ~(mask >> (BITS_PER_SEGMENT - bit)))
 #endregion
@@ -231,7 +254,7 @@ def getBitsToBytes(array: READABLE_ARRAY, count: int, startBit: int) -> READABLE
     else:
         val = []
         for i in range(count):
-            val.append((array[i] >> bit) | (array[i] << (8 - bit)))
+            val.append(((array[i] >> bit) | (array[i] << (8 - bit)))&0xff)
         return bytes(val)
 #endregion
 
@@ -284,10 +307,10 @@ def ushortFromBits(array: READABLE_ARRAY, startBit: int, byteorder: Literal['big
 
     val = array[pos] | array[pos+1] << 8
     if bit == 0:
-        return val
+        return val & 0xffff
 
     val >>= bit
-    return val | array[pos+2] << (16 - bit)
+    return (val | array[pos+2] << (16 - bit)) & 0xffff
 
 #endregion
 
@@ -396,19 +419,21 @@ def bytesFromBits(array: READABLE_ARRAY, count: int, startBit: int) -> READABLE_
         for i in range(byteCount):
             val.append((array[i]&0xff >> bit) | (array[i] << (8 - bit)) & 0xff)
 
-        print(val)
         return bytes(val)
 #endregion
 
 #endregion
 
 #region VarLen
+
 def toVarLong(value: int) -> WRITEABLE_ARRAY:
     return toVarULong(zigzagEncode64(value))
 
-def fromVarULong(data: READABLE_ARRAY, pos):
+
+def fromVarLong(data: READABLE_ARRAY, pos: int = 0):
     r, c = fromVarULong(data, pos)
     return zigzagDecode(r), c
+
 
 def toVarULong(value: int) -> WRITEABLE_ARRAY:
     if value < 0:
@@ -428,7 +453,7 @@ def toVarULong(value: int) -> WRITEABLE_ARRAY:
     return tmp_data
 
 
-def fromVarULong(data: READABLE_ARRAY, pos: int):
+def fromVarULong(data: READABLE_ARRAY, pos: int = 0):
     shift = 0
     val = 0
     bytes_read = 0

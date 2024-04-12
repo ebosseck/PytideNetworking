@@ -7,7 +7,7 @@ from typing import List, TYPE_CHECKING, Union
 
 from pytidenetworking.utils.delayed_events import DelayedEvent
 from .message import Message, createFromBytes as createRawMessage
-from .message_base import MessageHeader, MIN_NOTIFY_BYTES, MIN_RELIABLE_BYTES
+from .message_base import MessageHeader, MIN_NOTIFY_BYTES, MIN_RELIABLE_BYTES, HEADER_BITMASK
 
 from .constants import *
 
@@ -237,7 +237,7 @@ class Peer:
         :param connection: connection the data was received from
         :return:
         """
-        header = data[0]
+        header = data[0] & HEADER_BITMASK
         message = createRawMessage(data)
         if message.sendMode == MessageHeader.Notify:
             if amount < MIN_NOTIFY_BYTES:

@@ -25,17 +25,17 @@ class ReliableSequencer(Sequencer):
                 if sequenceGap > 64:
                     logger.warning("The gap between received sequence IDs was very large ({})!".format(sequenceGap))
                 self.receivedSeqIds <<= sequenceGap
-                self._lastReceivedSeqId = sequenceID
+                self.lastReceivedSeqId = sequenceID
             else:
                 sequenceGap = -sequenceGap # ID is older than the previous one
             doHandle = not self.receivedSeqIds.isSet(sequenceGap)
             self.receivedSeqIds.set(sequenceGap)
 
-        self.connection.sendAck(sequenceID, self._lastReceivedSeqId, self.receivedSeqIds)
+        self.connection.sendAck(sequenceID, self.lastReceivedSeqId, self.receivedSeqIds)
         return doHandle
 
     def updateReceivedAcks(self, remoteLastReceivedSeqId: int, remoteReceivedSeqIds: int):
-        sequenceGap = getSequenceGap(remoteLastReceivedSeqId, self._lastReceivedSeqId)
+        sequenceGap = getSequenceGap(remoteLastReceivedSeqId, self.lastReceivedSeqId)
 
         if sequenceGap > 0:
             cap, overflow = self.ackedSeqIds.hasCapacityFor(sequenceGap)
@@ -43,9 +43,9 @@ class ReliableSequencer(Sequencer):
                 for i in range(overflow):
                     check, checkedPosition = self.ackedSeqIds.checkAndTrimLast()
                     if not check:
-                        self.connection.resendMessage(self._lastReceivedSeqId - checkedPosition)
+                        self.connection.resendMessage(self.lastReceivedSeqId - checkedPosition)
                     else:
-                        self.connection.clearMessage(self._lastReceivedSeqId - checkedPosition)
+                        self.connection.clearMessage(self.lastReceivedSeqId - checkedPosition)
 
             self.ackedSeqIds <<= sequenceGap
             self.lastAckedSeqId = remoteLastReceivedSeqId

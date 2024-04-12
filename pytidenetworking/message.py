@@ -88,7 +88,6 @@ class Message(MessageBase):
         :return:
         """
         self.data = bytearray()
-        self.data.extend([0] * 1225)
         if header is not None:
             self.header = header
         self.readBit = 0
@@ -192,6 +191,8 @@ class Message(MessageBase):
         :raises: NotEnoughBytesError if not enough bytes are available
         """
         if (len(self.data) * BITS_PER_BYTE) - readpos < expectedBits:
+            print("Available: {}, ReadPos: {}, Expected: {}"
+                  .format(len(self.data) * BITS_PER_BYTE, readpos, expectedBits))
             raise NotEnoughBytesError()
 
 
