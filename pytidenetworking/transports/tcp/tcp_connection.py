@@ -84,7 +84,7 @@ class TCPConnection(Connection):
         try:
             self.__tcpPeer.sendBuffer = bytearray(realAmount.to_bytes(length=MESSAGE_LENGTH_BYTES, byteorder=self.byte_order, signed=True))
             #todo: double check: why signed ?
-            self.__tcpPeer.sendBuffer.extend(dataBuffer[:realAmount])
+            self.__tcpPeer.sendBuffer.extend(dataBuffer[:realAmount+1])
             self.socket.sendall(self.__tcpPeer.sendBuffer)
         except error as ex:
             logger.debug(ex)

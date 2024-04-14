@@ -187,7 +187,8 @@ def setBitsFromBytes(bitfield: READABLE_ARRAY, amount: int, array: WRITEABLE_ARR
     byte_count = amount // BITS_PER_BYTE
     bits_remaining = amount % BITS_PER_BYTE
 
-    ensureSpaceAvailable(array, startBit, amount if bits_remaining == 0 else amount + BITS_PER_BYTE)
+    print("Pos {}, Bit {}, bcount {}, brem {}".format(pos, bit, byte_count, bits_remaining))
+    ensureSpaceAvailable(array, startBit, amount)
 
     if bit == 0:
         for i in range(byte_count):
@@ -195,16 +196,22 @@ def setBitsFromBytes(bitfield: READABLE_ARRAY, amount: int, array: WRITEABLE_ARR
     else:
         for i in range(byte_count):
             array[pos + i] = (((bitfield[i] << bit) & (0xff << bit)) | (array[pos + i] & (0xff >> (8 - bit)))) & 0xff
-            array[pos + i + 1] = (((bitfield[i] >> (8 - bit)) & (0xff >> (8 - bit))) | (array[pos + i + 1] & (0xff << bit))) & 0xff
+            array[pos + i + 1] = (((bitfield[i] >> (8 - bit)) & (0xff >> (8 - bit))) | (array[pos + i + 1] & ~(0xff << (8 - bit)))) & 0xff
 
     if bits_remaining != 0:
-        mask = ((1 << amount) - 1) & 0xff
-        invmask = ~mask
-        bits = bitfield[byte_count] & mask
-        array[pos + byte_count] = (((bits << bit) & (mask << bit)) | (array[pos + byte_count]
-                                                                      & (invmask >> (8 - bit)))) & 0xff
-        array[pos + byte_count + 1] = (((bits >> (8 - bit)) & (mask >> (8 - bit))) | (array[pos + byte_count + 1]
-                                                                                      & (invmask << bit))) & 0xff
+        mask = ((1 << bits_remaining) - 1) & 0xff
+        bitfld = bitfield[byte_count]
+
+        array[pos + i] = (((bitfield[i] << bit) & (0xff << bit)) | (array[pos + i] & (0xff >> (8 - bit)))) & 0xff
+        if (bit + bits_remaining >= 8):
+            array[pos + i + 1] = (((bitfield[i] >> (8 - bit)) & (0xff >> (8 - bit))) | (array[pos + i + 1] & (0xff << bit))) & 0xff
+
+
+        #invmask = (~mask)
+        #print("Mask: {}, InvMask: {}".format(bin(mask), bin(invmask)))
+        #bits = bitfield[byte_count] & mask
+        #array[pos + byte_count] = (((bits << bit) & (mask << bit)) | (array[pos + byte_count] & ((0xff >> (8 - bit))))) & 0xff
+        #array[pos + byte_count + 1] = (((bits >> (8 - bit)) & (mask >> (8 - bit))) | (array[pos + byte_count + 1] & (invmask << bit))) & 0xff
     return array
 
 
@@ -401,13 +408,17 @@ def bytesToBits(value: READABLE_ARRAY, array: WRITEABLE_ARRAY, startBit: int):
             array[pos + i] = (value[i]) & 0xff
     else:
         for i in range(bcount):
-            array[pos + i] = ((value[i] << bit) & (0xff << bit)) | (array[pos + i] & (0xff  >> (8 - bit)))
-            array[pos + i + 1] = ((value[i] >> (8 - bit)) & (0xff >> (8 - bit))) | (array[pos + i + 1] & (0xff << bit))
+            array[pos + i] = (((value[i] << bit) & (0xff << bit)) | (array[pos + i] & (0xff  >> (8 - bit)))) & 0xff
+            array[pos + i + 1] = (((value[i] >> (8 - bit)) & (0xff >> (8 - bit))) | (array[pos + i + 1] & (0xff << bit))) & 0xff
     return array
 
 
 def bytesFromBits(array: READABLE_ARRAY, count: int, startBit: int) -> READABLE_ARRAY:
-
+    """
+    :param array: array to read bytes from
+    :param count: bit count IN BITS
+    :param startBit: Start bit in BITS
+    """
     pos: int = startBit // BITS_PER_BYTE
     bit: int = startBit % BITS_PER_BYTE
     byteCount = int(ceil(float(count) / BITS_PER_BYTE))
@@ -416,8 +427,14 @@ def bytesFromBits(array: READABLE_ARRAY, count: int, startBit: int) -> READABLE_
         return array[pos:pos+byteCount]
     else:
         val = []
-        for i in range(byteCount):
-            val.append((array[i]&0xff >> bit) | (array[i] << (8 - bit)) & 0xff)
+        for i in range(byteCount - 1):
+            val.append((array[i] >> bit) | (array[i + 1] << (8 - bit)) & 0xff)
+        if len(array) > byteCount:
+            print("A")
+            val.append((array[byteCount - 1] >> bit) | (array[byteCount] << (8 - bit)) & 0xff)
+        else:
+            print("B")
+            val.append((array[byteCount - 1] >> bit) & 0xff)
 
         return bytes(val)
 #endregion

@@ -149,6 +149,35 @@ class ValueConversionTests(unittest.TestCase):
 
     #endregion
 
+    #region bytes to bits
+
+    def testBytesToBits(self):
+        result = [0] * 4
+        expected = [0b10101010, 0b00110011, 0b11110000, 0b00111100]
+        result = conv.bytesToBits(expected, result, 0)
+        self.assertEqual(result, expected)
+
+        result = [0] * 5
+        expected = [0b10100000, 0b00111010, 0b00000011, 0b11001111, 0b00000011]
+        value = [0b10101010, 0b00110011, 0b11110000, 0b00111100]
+        result = conv.bytesToBits(value, result, 4)
+        self.assertEqual(result, expected)
+
+    def testBytesFromBits(self):
+        for i in range(RANDOM_TEST_COUNT):
+            bit = random.randint(0, 7)
+            bytelen = random.randint(20, 20)
+            expected = randomListInt(bytelen, 0, 255)
+            tmpbits = [0] * (bytelen + 1)
+
+            tmpbits = conv.bytesToBits(expected, tmpbits, bit)
+            result = [0] * len(expected)
+            result = conv.bytesFromBits(tmpbits, len(expected) * 8, bit)
+            self.assertEqual(expected, list(result))
+
+    def testSetBitsFromBytes(self):
+        pass
+    #region
 
 #region Tools
 def randomListInt(count, start, end):

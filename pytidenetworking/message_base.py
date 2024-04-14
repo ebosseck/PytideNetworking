@@ -114,7 +114,7 @@ class MessageBase:
 
     @property
     def readBits(self):
-        return self.writeBit
+        return self.readBit
 
     @property
     def unreadBits(self):
@@ -215,8 +215,8 @@ class MessageBase:
         :param amount: Amount of bytes to populate the message with
         :return:
         """
-        if amount > 0:
-            bytestream = bytestream[: amount]
+        #if amount > 0:
+            #bytestream = bytestream[: amount]
 
         self.header = bytestream[0] & HEADER_BITMASK
 
@@ -231,9 +231,23 @@ class MessageBase:
             bitpos = self.__readHeaderReliable(bytestream)
 
         if self.hasMessageID: # only user generated messages
+            print("got MessageID")
             self.msgID, bitpos = fromVarULong(bytestream, bitpos)
 
-        self.data = bytesFromBits(bytestream, len(bytestream) * BITS_PER_BYTE - bitpos, bitpos)
+        print("RAW: {}, pos: {}".format(list(bytestream), bitpos))
+
+
+        self.data = bytesFromBits(bytestream, (len(bytestream) * BITS_PER_BYTE) - bitpos, bitpos)
+
+        print(self)
+
+    def __str__(self):
+        return '\n'.join([
+            "Header: {}".format(self.header),
+            "ReadPos: {}".format(self.readBit),
+            "WritePos: {}".format(self.writeBit),
+            "Payload: {}".format(self.data)
+        ])
 
     def __readHeaderUnreliable(self, bytestream: Union[bytearray, List[int]]) -> int:
         # No further content in header

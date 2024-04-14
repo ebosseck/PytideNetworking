@@ -131,9 +131,9 @@ class Message(MessageBase):
         Appends the given data to the message body
         :param value: data to append
         """
-        requiredLength = ceil(self.writeBit / BITS_PER_BYTE) + (len(value))
+        requiredLength = ceil(float(self.writeBit) / BITS_PER_BYTE) + (len(value))
         if len(self.data) < requiredLength:
-            self.data.extend([0] * (requiredLength - len(self.data)))
+            self.data.extend([0] * ((requiredLength) - len(self.data)))
         self.data = bytesToBits(value, self.data, self.writeBit)
         self.writeBit += len(value) * BITS_PER_BYTE
 
@@ -142,7 +142,7 @@ class Message(MessageBase):
         Writes the given data at the given position of the message body
 
         :param value: bytes to write to the messages payload
-        :param pos: position to write the data to
+        :param bitpos: position to write the data to
         """
         requiredLength = ceil(bitpos / BITS_PER_BYTE) + (len(value))
         if len(self.data) < requiredLength:
@@ -190,9 +190,7 @@ class Message(MessageBase):
         :param expectedBits: Number of bits expected available for reading
         :raises: NotEnoughBytesError if not enough bytes are available
         """
-        if (len(self.data) * BITS_PER_BYTE) - readpos < expectedBits:
-            print("Available: {}, ReadPos: {}, Expected: {}"
-                  .format(len(self.data) * BITS_PER_BYTE, readpos, expectedBits))
+        if ((len(self.data)) * BITS_PER_BYTE) - readpos < expectedBits:
             raise NotEnoughBytesError()
 
 
@@ -253,30 +251,31 @@ class Message(MessageBase):
     #region Variable Length
 
     def putVarULong(self, value: int, pos: int = -1) -> int:
-        tmp_data = []
-        while True:
-            byte_val = value & 0b_0111_1111
-            value >>= 7
-            if value != 0:
-                byte_val |= 0b_0111_1111
-                tmp_data.append(byte_val)
-            else:
-                tmp_data.append(byte_val)
-                break
-        return self.putBytes(tmp_data, pos)
+        #tmp_data = []
+        #while True:
+        #    byte_val = value & 0b_0111_1111
+        #    value >>= 7
+        #    if value != 0:
+        #        byte_val |= 0b_0111_1111
+        #        tmp_data.append(byte_val)
+        #    else:
+        #        tmp_data.append(byte_val)
+        #        break
+        return self.putBytes(toVarULong(value), pos)
 
     def getVarULong(self, pos: int):
-        shift = 0
-        val = 0
-        bytes_read = 0
-        while True:
-            bytes_read += 1
-            byte_val = self.getUInt8(pos)
-            val |= (byte_val & 0b0111_1111) << shift
-            shift += 7
-            if byte_val & 0b1000_0000 == 1:
-                break
-        return val, bytes_read*BITS_PER_BYTE
+        #shift = 0
+        #val = 0
+        #bytes_read = 0
+        #while True:
+        #    bytes_read += 1
+        #    byte_val = self.getUInt8(pos)
+        #    val |= (byte_val & 0b0111_1111) << shift
+        #    shift += 7
+        #    if byte_val & 0b1000_0000 == 1:
+        #       break
+        pos = self.computeReadPointerBits(pos)
+        return fromVarULong(self.data, pos)
 
     #endregion
 
@@ -305,17 +304,16 @@ class Message(MessageBase):
         """
         Gets the substring of bytes at the given position of the given length
 
-        :param length: length of the bytestring requested
+        :param length: length of the bytestring requested IN BYTES
         :param pos: starting position of the byte string requested
         :return: the requested bytestring
         """
         pos = self.computeReadPointerBits(pos)
+        self.checkReadBitsAvailable(pos, length * BITS_PER_BYTE)
 
-        self.checkReadBitsAvailable(pos, length* BITS_PER_BYTE)
+        self.readBit = pos + (length * BITS_PER_BYTE)
 
-        self.readBit = pos+(length * BITS_PER_BYTE)
-
-        return bytesFromBits(self.data, length, pos)#self.data[pos: pos+length]
+        return bytesFromBits(self.data, length * BITS_PER_BYTE, pos)#self.data[pos: pos+length]
 
     #endregion
 
@@ -389,20 +387,23 @@ class Message(MessageBase):
         :return: the Array at the given psoition within the message
         """
         bitpos = self.computeReadPointerBits(pos)
+        print("B.1")
+        print(bitpos)
         length, bits_read = self.getVarULong(bitpos) if length < 0 else (length, 0)
-
+        print("B.2")
         self.checkReadBitsAvailable(bitpos, length)
-
+        print("B.3")
         result = []
         bitfield = getBitsToBytes(self.data, length, bitpos)
+        print("B.4")
         for i in range(length):
             byte = i // BITS_PER_BYTE
             bit = i % BITS_PER_BYTE
             result.append(bitfield[byte] & (1 << bit) != 0)
-
+        print("B.5")
         if pos < 0:
             self.readBit += bits_read + length
-
+        print("B.6")
         return result
 
     #endregion
@@ -633,6 +634,7 @@ class Message(MessageBase):
          defaults to the next value in the message
         :return: the value at this position
         """
+
         return int.from_bytes(self.getBytes(2, pos), self.byte_order, signed=False)
 
     def putUInt16Array(self, value: List[int], includeLength:bool = True, pos: int = -1):

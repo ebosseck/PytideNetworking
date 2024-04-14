@@ -34,6 +34,7 @@ class ValueSerialisationTests(unittest.TestCase):
         message = Message()
         message.init()
         message.putBoolArray(value)
+        print(' '.join([bin(n) for n in list(message.data)]))
         readValue = message.getBoolArray()
 
         self.assertEqual(value, readValue)  # add assertion here
