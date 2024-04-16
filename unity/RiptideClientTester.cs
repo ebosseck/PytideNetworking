@@ -4,9 +4,12 @@ using UnityEngine;
 
 using Riptide;
 using Riptide.Transports.Tcp;
+using Riptide.Transports.Udp;
 
 public class RiptideClientTester : MonoBehaviour
 {
+    public bool useTCP = false;
+
     private Client client;
 
     private int frameCounter = 0;
@@ -48,8 +51,18 @@ public class RiptideClientTester : MonoBehaviour
     private MessageSendMode SendMode = MessageSendMode.Unreliable;
     void Start()
     {
-        TcpClient transport = new TcpClient();
-        client = new Client(transport);
+        if (useTCP)
+        {
+            TcpClient transport = new TcpClient();
+            client = new Client(transport);
+        }
+        else
+        {
+            UdpClient transport = new UdpClient();
+            client = new Client(transport);
+        }
+
+
         client.Connect("127.0.0.1:7777");
     }
 
