@@ -8,9 +8,9 @@ This port provides functionality for establishing connections with clients and s
 
 This port was last tested for functionality with Riptide [Commit 5a86ca0](https://github.com/RiptideNetworking/Riptide/tree/5a86ca0a67d6cce1fb080eaca0535d030528f0d6), Jan 26 2023
 
-This port is compatible with Riptide 2.0.0.
+This port is compatible with Riptide 2.1.0 to 2.2.0.
 
-The Compatibility can be tested by connecting the C# client provided in the unity folder with the server implemented in testing/server.py
+The Compatibility can be tested by connecting the C# client provided in the unity folder with the server implemented in testing/serverTCPTest.py or testing/serverUDPTest.py
 
 ## Compatible libraries in other languages
 
@@ -38,6 +38,14 @@ This should already be sufficient to be able to use the PytideNetworking library
 
 ### Create a new Server
 
+For an UDP server:
+```python
+    server: Server = Server()
+    server.start(PORT, 10)
+```
+
+For a TCP server:
+
 ```python
     tcpTransport = TCPServer()
     server: Server = Server(tcpTransport)
@@ -62,10 +70,17 @@ server.registerMessageHandler(messageID, handleMessage)
 
 ### Create a new Client
 
+For an UDP client:
+```python
+    client: Client = Client()
+    client.connect((SERVER_ADDRESS, PORT))
+```
+
+For a TCP client:
 ```python
     tcpTransport = TCPClient()
     client: Client = Client(tcpTransport)
-    client.connect(("127.0.0.1", PORT))
+    client.connect((SERVER_ADDRESS, PORT))
 ```
 
 In order to process the messages:
