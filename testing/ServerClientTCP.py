@@ -37,12 +37,10 @@ def serverHandleMessage(val: int, rcvMsg: Message):
     print("Received Message with content: '{}' from Client {}".format(rcvMsg.getString(), val))
     msg = message.create(MessageSendMode.Reliable, MESSAGE_ID_HANDLED)
     msg.putString("Hello World !")
-    print(msg)
     server.sendToAll(msg)
 
 def clientHandleMessage(message: Message):
-    print(message)
-    print("Received Message with content: '{}' from Server".format(len(message.getString())))
+    print("Received Message with content: '{}' from Server".format(message.getString()))
 
 if __name__ == "__main__":
     server = runServer()

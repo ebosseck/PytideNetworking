@@ -432,11 +432,11 @@ def bytesFromBits(array: READABLE_ARRAY, count: int, startBit: int) -> READABLE_
     else:
         val = []
         for i in range(byteCount - 1):
-            val.append((array[i] >> bit) | (array[i + 1] << (8 - bit)) & 0xff)
-        if len(array) > byteCount:
-            val.append((array[byteCount - 1] >> bit) | (array[byteCount] << (8 - bit)) & 0xff)
+            val.append((array[pos + i] >> bit) | (array[pos + i + 1] << (8 - bit)) & 0xff)
+        if len(array) > pos + byteCount:
+            val.append((array[pos + byteCount - 1] >> bit) | (array[pos + byteCount] << (8 - bit)) & 0xff)
         else:
-            val.append((array[byteCount - 1] >> bit) & 0xff)
+            val.append((array[pos + byteCount - 1] >> bit) & 0xff)
 
         return bytes(val)
 #endregion

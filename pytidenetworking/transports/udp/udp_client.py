@@ -59,4 +59,4 @@ class UDPClient(UDPPeer, IClient):
         :param fromConnection: Connection the date is received from
         """
         if self.udpConnection.remoteEndpoint == fromEndPoint and not self.udpConnection.isNotConnected:
-            self.DataReceived(dataBuffer, amount, fromEndPoint)
+            self.DataReceived(dataBuffer, amount, self.udpConnection)
