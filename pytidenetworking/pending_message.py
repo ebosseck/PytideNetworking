@@ -135,6 +135,9 @@ def createPending(sequenceID: int, message: MessageBase, connection: "Connection
     pendingMessage.msgID = message.msgID
     pendingMessage.data = message.data
 
+    pendingMessage.readBit = message.readBit
+    pendingMessage.writeBit = message.writeBit
+
     pendingMessage.__sendAttempts = 0
     pendingMessage.__wasCleared = False
 

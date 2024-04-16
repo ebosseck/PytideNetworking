@@ -34,7 +34,6 @@ class ValueSerialisationTests(unittest.TestCase):
         message = Message()
         message.init()
         message.putBoolArray(value)
-        print(' '.join([bin(n) for n in list(message.data)]))
         readValue = message.getBoolArray()
 
         self.assertEqual(value, readValue)  # add assertion here
@@ -108,7 +107,6 @@ class ValueSerialisationTests(unittest.TestCase):
 
         message = Message()
         message.init()
-
         message.putInt16Array(value)
         readValue = message.getInt16Array()
 
@@ -117,12 +115,10 @@ class ValueSerialisationTests(unittest.TestCase):
         value = self.randomListInt(10, 0, 2**15)
 
         message.init()
-
         message.putUInt16Array(value)
         readValue = message.getUInt16Array()
 
         self.assertEqual(value, readValue)  # add assertion here
-
 
     def testMessageInt32(self):
 

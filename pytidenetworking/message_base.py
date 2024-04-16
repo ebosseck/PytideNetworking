@@ -159,7 +159,8 @@ class MessageBase:
             bitpos += len(msgIDBytes) * BITS_PER_BYTE
 
         bytestream = setBitsFromBytes(self.data, self.writeBit, bytestream, bitpos)
-
+        if self.header == 7:
+            print("Sending Bytestream: {}".format(bytestream))
         return bytestream, len(bytestream)
 
     def __makeHeaderUnreliable(self, bytestream: Union[bytearray, List[int]]) -> Tuple[Union[bytearray, List[int]], int]:
@@ -219,7 +220,6 @@ class MessageBase:
             #bytestream = bytestream[: amount]
 
         self.header = bytestream[0] & HEADER_BITMASK
-
         if self.header < MessageHeader.Notify:
             # Unreliable
             bitpos = self.__readHeaderUnreliable(bytestream)
@@ -231,15 +231,15 @@ class MessageBase:
             bitpos = self.__readHeaderReliable(bytestream)
 
         if self.hasMessageID: # only user generated messages
-            print("got MessageID")
-            self.msgID, bitpos = fromVarULong(bytestream, bitpos)
+            self.msgID, readbytes = fromVarULong(bytestream, bitpos)
+            bitpos += readbytes
 
-        print("RAW: {}, pos: {}".format(list(bytestream), bitpos))
-
+        if self.header == 7:
+            print("Received Bytestream: {}".format(bytestream))
 
         self.data = bytesFromBits(bytestream, (len(bytestream) * BITS_PER_BYTE) - bitpos, bitpos)
-
-        print(self)
+        self.readBit = 0
+        self.writeBit = 0
 
     def __str__(self):
         return '\n'.join([

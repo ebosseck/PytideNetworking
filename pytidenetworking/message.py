@@ -147,7 +147,9 @@ class Message(MessageBase):
         requiredLength = ceil(bitpos / BITS_PER_BYTE) + (len(value))
         if len(self.data) < requiredLength:
             self.data.extend([0] * (requiredLength - len(self.data)))
+            self.writeBit = max(self.writeBit, requiredLength)
         self.data = bytesToBits(value, self.data, bitpos)
+
 
     #endregion
 
@@ -387,23 +389,16 @@ class Message(MessageBase):
         :return: the Array at the given psoition within the message
         """
         bitpos = self.computeReadPointerBits(pos)
-        print("B.1")
-        print(bitpos)
         length, bits_read = self.getVarULong(bitpos) if length < 0 else (length, 0)
-        print("B.2")
         self.checkReadBitsAvailable(bitpos, length)
-        print("B.3")
         result = []
-        bitfield = getBitsToBytes(self.data, length, bitpos)
-        print("B.4")
+        bitfield = getBitsToBytes(self.data, length, bitpos+bits_read)
         for i in range(length):
             byte = i // BITS_PER_BYTE
             bit = i % BITS_PER_BYTE
             result.append(bitfield[byte] & (1 << bit) != 0)
-        print("B.5")
         if pos < 0:
             self.readBit += bits_read + length
-        print("B.6")
         return result
 
     #endregion
@@ -602,7 +597,7 @@ class Message(MessageBase):
         """
         length, bits_read = self.getVarULong(pos) if length < 0 else (length, 0)
 
-        self.checkReadBitsAvailable(self.readBit + bits_read, length * BITS_PER_BYTE * 16)
+        self.checkReadBitsAvailable(self.readBit + bits_read, length * BITS_PER_BYTE * 2)
 
         self.readBit = self.computeReadPointerBits(pos) + bits_read
         result = []
@@ -667,9 +662,9 @@ class Message(MessageBase):
         """
         length, bits_read = self.getVarULong(pos) if length < 0 else (length, 0)
 
-        self.checkReadBitsAvailable(self.readBit, 16*length)
+        self.checkReadBitsAvailable(self.readBit + bits_read, length * BITS_PER_BYTE * 2)
 
-        self.readBit = self.computeReadPointerBits(pos)
+        self.readBit = self.computeReadPointerBits(pos) + bits_read
         result = []
         for _ in range(length):
             result.append(self.getUInt16())
@@ -868,7 +863,7 @@ class Message(MessageBase):
         """
         length, bits_read = self.getVarULong(pos) if length < 0 else (length, 0)
 
-        self.checkReadBitsAvailable(self.readBit + bits_read, length * BITS_PER_BYTE * 64)
+        self.checkReadBitsAvailable(self.readBit + bits_read, length * BITS_PER_BYTE * 8)
 
         self.readBit = self.computeReadPointerBits(pos) + bits_read
         result = []
@@ -937,7 +932,7 @@ class Message(MessageBase):
         self.readBit = self.computeReadPointerBits(pos) + bits_read
         result = []
         for _ in range(length):
-            result.append(self.getInt64())
+            result.append(self.getUInt64())
 
         return result
 
@@ -1005,7 +1000,7 @@ class Message(MessageBase):
         self.readBit = self.computeReadPointerBits(pos) + bits_read
         result = []
         for _ in range(length):
-            result.append(self.getInt8())
+            result.append(self.getFloat())
 
         return result
 

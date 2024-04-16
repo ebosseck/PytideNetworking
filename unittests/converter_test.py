@@ -171,12 +171,9 @@ class ValueConversionTests(unittest.TestCase):
             tmpbits = [0] * (bytelen + 1)
 
             tmpbits = conv.bytesToBits(expected, tmpbits, bit)
-            result = [0] * len(expected)
             result = conv.bytesFromBits(tmpbits, len(expected) * 8, bit)
             self.assertEqual(expected, list(result))
 
-    def testSetBitsFromBytes(self):
-        pass
     #region
 
 #region Tools
