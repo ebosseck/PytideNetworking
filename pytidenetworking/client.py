@@ -134,7 +134,6 @@ class Client(Peer):
     @timeoutTime.setter
     def timeoutTime(self, value):
         self.defaultTimeout = value
-        #TODO
 
     # region Connection State
     @property
